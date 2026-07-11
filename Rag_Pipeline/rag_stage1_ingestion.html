@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAG Stage 1 — Data Ingestion</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #2a2f3f;
+    --accent: #5b8af0;
+    --accent2: #38d9a9;
+    --accent3: #f5a623;
+    --accent4: #e06c9a;
+    --text: #d4d8e8;
+    --muted: #6a7290;
+    --code-bg: #0a0c12;
+    --tag-pdf: #3b82f6;
+    --tag-img: #a855f7;
+    --tag-table: #10b981;
+    --tag-text: #f59e0b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.7;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #0d0f14 60%, #111827);
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -40px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(91,138,240,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .stage-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(91,138,240,0.12);
+    border: 1px solid rgba(91,138,240,0.3);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -1px;
+    margin-bottom: 10px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 560px;
+    font-weight: 300;
+  }
+
+  /* NAV TABS */
+  .nav {
+    display: flex;
+    gap: 0;
+    padding: 0 40px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .nav-tab {
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: #fff; border-bottom-color: var(--accent); }
+  .nav-tab .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* CONTENT */
+  .content { padding: 40px; max-width: 900px; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* INSTALL BOX */
+  .install-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .install-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .install-card h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tag-pdf { background: rgba(59,130,246,0.15); color: #93b4f8; border: 1px solid rgba(59,130,246,0.3); }
+  .tag-img { background: rgba(168,85,247,0.15); color: #d4a4f8; border: 1px solid rgba(168,85,247,0.3); }
+  .tag-table { background: rgba(16,185,129,0.15); color: #6ee7c5; border: 1px solid rgba(16,185,129,0.3); }
+  .tag-text { background: rgba(245,158,11,0.15); color: #fcd07a; border: 1px solid rgba(245,158,11,0.3); }
+  .tag-all { background: rgba(91,138,240,0.15); color: #99b8f6; border: 1px solid rgba(91,138,240,0.3); }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 20px 0;
+    position: relative;
+  }
+  .code-header {
+    background: var(--surface2);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-header span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .copy-btn {
+    background: rgba(91,138,240,0.15);
+    border: 1px solid rgba(91,138,240,0.3);
+    color: var(--accent);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { background: rgba(91,138,240,0.25); }
+  .copy-btn.copied { color: var(--accent2); border-color: rgba(56,217,169,0.4); background: rgba(56,217,169,0.1); }
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: #c9d1e3;
+  }
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; }
+  .imp { color: #ffcb6b; }
+  .num { color: #f78c6c; }
+  .cls { color: #ffcb6b; }
+  .dec { color: #89ddff; }
+
+  /* CALLOUT */
+  .callout {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 16px 0;
+    border-left: 3px solid;
+    font-size: 14px;
+  }
+  .callout-info { background: rgba(91,138,240,0.08); border-color: var(--accent); color: #a8b8e8; }
+  .callout-tip { background: rgba(56,217,169,0.08); border-color: var(--accent2); color: #90ddc6; }
+  .callout-warn { background: rgba(245,158,11,0.08); border-color: var(--accent3); color: #d4b87a; }
+  .callout strong { color: #fff; }
+
+  /* FLOW STEPS */
+  .flow-steps { margin: 24px 0; }
+  .flow-step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(91,138,240,0.15);
+    border: 1px solid rgba(91,138,240,0.4);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step-body { padding-top: 3px; }
+  .step-body strong { color: #fff; font-size: 14px; }
+  .step-body p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* SECTION HEADING */
+  .sec-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .sec-subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin: 28px 0 10px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  /* PACKAGE TABLE */
+  .pkg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 28px;
+  }
+  .pkg-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .pkg-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(42,47,63,0.5);
+    vertical-align: top;
+  }
+  .pkg-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .pkg-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--accent);
+    background: rgba(91,138,240,0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .pkg-table td:last-child { color: var(--muted); }
+
+  /* SUMMARY BOX */
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 32px;
+  }
+  .summary h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+    letter-spacing: 0.3px;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(42,47,63,0.5);
+    font-size: 13px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .label { color: var(--muted); }
+  .summary-row .val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="stage-badge">◆ RAG PIPELINE · STAGE 1 OF 6</div>
+  <h1>Data <span>Ingestion</span></h1>
+  <p>Load PDFs, images, tables, and raw text into LangChain — the foundation of your multimodal RAG system.</p>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active" onclick="showTab('setup')">
+    <div class="dot" style="background:#5b8af0"></div> Setup &amp; Install
+  </div>
+  <div class="nav-tab" onclick="showTab('pdf')">
+    <div class="dot" style="background:#3b82f6"></div> PDF Loader
+  </div>
+  <div class="nav-tab" onclick="showTab('images')">
+    <div class="dot" style="background:#a855f7"></div> Images / OCR
+  </div>
+  <div class="nav-tab" onclick="showTab('tables')">
+    <div class="dot" style="background:#10b981"></div> Tables / CSV
+  </div>
+  <div class="nav-tab" onclick="showTab('text')">
+    <div class="dot" style="background:#f59e0b"></div> Text / HTML / JSON
+  </div>
+  <div class="nav-tab" onclick="showTab('full')">
+    <div class="dot" style="background:#e06c9a"></div> Full Pipeline
+  </div>
+</div>
+
+<!-- ===== SETUP ===== -->
+<div class="content">
+<div class="section active" id="section-setup">
+  <div class="sec-title">Environment Setup</div>
+  <div class="sec-subtitle">Install everything you need before writing a single line of RAG code.</div>
+
+  <div class="callout callout-info">
+    <strong>Prerequisite:</strong> Python 3.9+ recommended. Create a virtual environment first:<br>
+    <code style="font-family:monospace;font-size:13px;color:#c3e88d">python -m venv rag_env && source rag_env/bin/activate</code>
+  </div>
+
+  <h3><span class="tag tag-all">CORE</span> LangChain + Document Loaders</h3>
+
+  <div class="code-block">
+    <div class="code-header">
+      <span>terminal · pip install</span>
+      <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    </div>
+    <pre><span class="cm"># Core LangChain packages</span>
+pip install langchain langchain-community langchain-core
+
+<span class="cm"># PDF parsing (choose one or both)</span>
+pip install pymupdf              <span class="cm"># fitz — fastest, great for text+images</span>
+pip install pdfplumber           <span class="cm"># better for tables in PDFs</span>
+pip install pypdf                <span class="cm"># pure Python fallback</span>
+
+<span class="cm"># Image OCR</span>
+pip install pytesseract pillow   <span class="cm"># Tesseract OCR wrapper</span>
+pip install pdf2image            <span class="cm"># convert PDF pages to images</span>
+
+<span class="cm"># Tables / spreadsheets</span>
+pip install pandas openpyxl xlrd unstructured
+
+<span class="cm"># Web / HTML / JSON</span>
+pip install beautifulsoup4 lxml requests
+
+<span class="cm"># Unstructured (handles almost everything)</span>
+pip install "unstructured[all-docs]"
+
+<span class="cm"># Optional: docx, pptx support</span>
+pip install python-docx python-pptx</pre>
+  </div>
+
+  <div class="callout callout-warn">
+    <strong>Tesseract OCR:</strong> Also needs a system install — not just pip.<br>
+    Ubuntu/Debian: <code style="font-family:monospace;font-size:13px;color:#c3e88d">sudo apt install tesseract-ocr</code><br>
+    Mac: <code style="font-family:monospace;font-size:13px;color:#c3e88d">brew install tesseract</code><br>
+    Windows: Download installer from github.com/UB-Mannheim/tesseract
+  </div>
+
+  <div class="divider"></div>
+
+  <h3>What does each library do?</h3>
+  <table class="pkg-table">
+    <tr><th>Package</th><th>Used for</th><th>Formats</th></tr>
+    <tr><td><code>pymupdf</code></td><td>Fast PDF text + image extraction</td><td>PDF, XPS</td></tr>
+    <tr><td><code>pdfplumber</code></td><td>Table detection inside PDFs</td><td>PDF</td></tr>
+    <tr><td><code>pytesseract</code></td><td>OCR text from images/scans</td><td>PNG, JPG, TIFF</td></tr>
+    <tr><td><code>pillow</code></td><td>Image preprocessing for OCR</td><td>PNG, JPG, BMP</td></tr>
+    <tr><td><code>pandas</code></td><td>Read &amp; transform tabular data</td><td>CSV, Excel, JSON</td></tr>
+    <tr><td><code>unstructured</code></td><td>Universal multi-format loader</td><td>PDF, DOCX, HTML, MD, PPTX…</td></tr>
+    <tr><td><code>beautifulsoup4</code></td><td>HTML parsing &amp; cleaning</td><td>HTML, XML</td></tr>
+    <tr><td><code>langchain-community</code></td><td>All document loader classes</td><td>Wrapper around all above</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>Study tip:</strong> The <code>Document</code> object is LangChain's universal data container. Every loader returns a list of <code>Document(page_content="...", metadata={...})</code> — once you understand this, all loaders feel the same.
+  </div>
+
+  <div class="summary">
+    <h4>What you'll have after this section</h4>
+    <div class="summary-row"><span class="label">Environment</span><span class="val">rag_env (venv)</span></div>
+    <div class="summary-row"><span class="label">Core install</span><span class="val">langchain + langchain-community</span></div>
+    <div class="summary-row"><span class="label">PDF tools</span><span class="val">pymupdf, pdfplumber</span></div>
+    <div class="summary-row"><span class="label">Image/OCR</span><span class="val">pytesseract, pillow</span></div>
+    <div class="summary-row"><span class="label">Table tools</span><span class="val">pandas, openpyxl, unstructured</span></div>
+    <div class="summary-row"><span class="label">Web/Text</span><span class="val">beautifulsoup4, lxml</span></div>
+  </div>
+</div>
+
+<!-- ===== PDF ===== -->
+<div class="section" id="section-pdf">
+  <div class="sec-title">PDF Loader <span class="tag tag-pdf" style="font-size:14px;vertical-align:middle;margin-left:8px">PDF</span></div>
+  <div class="sec-subtitle">Three approaches — use PyMuPDF for speed, PDFPlumber for tables, Unstructured for complex layouts.</div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Load the PDF file</strong><p>Use a LangChain loader — it wraps the underlying library and returns Document objects</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Each page → one Document</strong><p>page_content = extracted text, metadata = filename, page number, source</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Inspect the output</strong><p>Print page_content and metadata to understand what you got</p></div></div>
+  </div>
+
+  <h3>Method A — PyMuPDF (fastest, recommended)</h3>
+  <div class="code-block">
+    <div class="code-header"><span>pdf_loader_pymupdf.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> <span class="cls">PyMuPDFLoader</span>
+
+<span class="cm"># --- Load a single PDF ---</span>
+loader = <span class="cls">PyMuPDFLoader</span>(<span class="str">"data/my_document.pdf"</span>)
+docs = loader.load()   <span class="cm"># returns list of Document objects</span>
+
+<span class="cm"># --- Inspect the output ---</span>
+<span class="fn">print</span>(<span class="str">f"Total pages loaded: {len(docs)}"</span>)
+<span class="fn">print</span>(<span class="str">f"\n--- Page 1 content (first 300 chars) ---"</span>)
+<span class="fn">print</span>(docs[<span class="num">0</span>].page_content[:<span class="num">300</span>])
+<span class="fn">print</span>(<span class="str">f"\n--- Metadata ---"</span>)
+<span class="fn">print</span>(docs[<span class="num">0</span>].metadata)
+
+<span class="cm"># Example output:
+# Total pages loaded: 12
+# --- Page 1 content ---
+# "Introduction to Machine Learning..."
+# --- Metadata ---
+# {'source': 'data/my_document.pdf', 'page': 0, 'total_pages': 12}</span>
+
+<span class="cm"># --- Load ALL PDFs from a folder ---</span>
+<span class="kw">import</span> <span class="imp">os</span>
+<span class="kw">from</span> <span class="imp">pathlib</span> <span class="kw">import</span> <span class="cls">Path</span>
+
+all_docs = []
+pdf_folder = <span class="cls">Path</span>(<span class="str">"data/pdfs/"</span>)
+
+<span class="kw">for</span> pdf_file <span class="kw">in</span> pdf_folder.glob(<span class="str">"*.pdf"</span>):
+    loader = <span class="cls">PyMuPDFLoader</span>(<span class="fn">str</span>(pdf_file))
+    docs = loader.load()
+    all_docs.extend(docs)
+    <span class="fn">print</span>(<span class="str">f"Loaded {len(docs)} pages from {pdf_file.name}"</span>)
+
+<span class="fn">print</span>(<span class="str">f"\nTotal documents across all PDFs: {len(all_docs)}"</span>)</pre>
+  </div>
+
+  <h3>Method B — PDFPlumber (best for tables inside PDFs)</h3>
+  <div class="code-block">
+    <div class="code-header"><span>pdf_loader_plumber.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> <span class="cls">PDFPlumberLoader</span>
+<span class="kw">import</span> <span class="imp">pdfplumber</span>
+
+<span class="cm"># --- Via LangChain wrapper ---</span>
+loader = <span class="cls">PDFPlumberLoader</span>(<span class="str">"data/report_with_tables.pdf"</span>)
+docs = loader.load()
+
+<span class="cm"># --- Direct pdfplumber for table extraction ---</span>
+<span class="kw">with</span> pdfplumber.<span class="fn">open</span>(<span class="str">"data/report_with_tables.pdf"</span>) <span class="kw">as</span> pdf:
+    <span class="kw">for</span> i, page <span class="kw">in</span> <span class="fn">enumerate</span>(pdf.pages):
+        text = page.extract_text()
+        tables = page.extract_tables()  <span class="cm"># list of tables per page</span>
+
+        <span class="fn">print</span>(<span class="str">f"\n=== Page {i+1} ==="</span>)
+        <span class="fn">print</span>(<span class="str">f"Text: {text[:200] if text else 'none'}"</span>)
+        <span class="fn">print</span>(<span class="str">f"Tables found: {len(tables)}"</span>)
+
+        <span class="kw">for</span> j, table <span class="kw">in</span> <span class="fn">enumerate</span>(tables):
+            <span class="fn">print</span>(<span class="str">f"  Table {j+1}: {len(table)} rows x {len(table[0])} cols"</span>)
+            <span class="fn">print</span>(<span class="str">f"  Header: {table[0]}"</span>)   <span class="cm"># first row = headers</span>
+            <span class="fn">print</span>(<span class="str">f"  Row 2 : {table[1]}"</span>)   <span class="cm"># second row = first data</span></pre>
+  </div>
+
+  <div class="callout callout-tip">
+    <strong>Best practice:</strong> Use PyMuPDF for text-heavy PDFs (research papers, manuals). Switch to PDFPlumber when you know the PDF contains structured tables. You can combine both in the same pipeline.
+  </div>
+
+  <h3>Method C — DirectoryLoader (load entire folder automatically)</h3>
+  <div class="code-block">
+    <div class="code-header"><span>directory_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> <span class="cls">DirectoryLoader</span>, <span class="cls">PyMuPDFLoader</span>
+
+loader = <span class="cls">DirectoryLoader</span>(
+    path=<span class="str">"data/"</span>,           <span class="cm"># folder to scan</span>
+    glob=<span class="str">"**/*.pdf"</span>,       <span class="cm"># pattern to match</span>
+    loader_cls=<span class="cls">PyMuPDFLoader</span>, <span class="cm"># which loader to use per file</span>
+    show_progress=<span class="dec">True</span>,
+    use_multithreading=<span class="dec">True</span>  <span class="cm"># faster for many files</span>
+)
+
+docs = loader.load()
+<span class="fn">print</span>(<span class="str">f"Loaded {len(docs)} total document pages"</span>)
+
+<span class="cm"># Each doc has metadata['source'] = the file path</span>
+<span class="cm"># Use this later to filter retrieval by source file</span>
+sources = <span class="fn">set</span>(d.metadata[<span class="str">'source'</span>] <span class="kw">for</span> d <span class="kw">in</span> docs)
+<span class="fn">print</span>(<span class="str">f"Unique files: {sources}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ===== IMAGES ===== -->
+<div class="section" id="section-images">
+  <div class="sec-title">Image Loader + OCR <span class="tag tag-img" style="font-size:14px;vertical-align:middle;margin-left:8px">IMAGE</span></div>
+  <div class="sec-subtitle">Extract text from images using Tesseract OCR, and convert scanned PDFs to text.</div>
+
+  <div class="callout callout-warn">
+    <strong>Tesseract must be installed system-wide</strong> before pytesseract will work. See the Setup tab for OS-specific instructions.
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Load image with Pillow</strong><p>Open PNG/JPG files, optionally preprocess (grayscale, contrast) for better OCR</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Run Tesseract OCR</strong><p>pytesseract.image_to_string() returns raw text from the image</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Wrap in Document object</strong><p>Create LangChain Document manually so it fits into the rest of the pipeline</p></div></div>
+  </div>
+
+  <h3>Method A — OCR from image files</h3>
+  <div class="code-block">
+    <div class="code-header"><span>image_ocr_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">import</span> <span class="imp">pytesseract</span>
+<span class="kw">from</span> <span class="imp">PIL</span> <span class="kw">import</span> <span class="cls">Image</span>, <span class="cls">ImageEnhance</span>, <span class="cls">ImageFilter</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">pathlib</span> <span class="kw">import</span> <span class="cls">Path</span>
+
+<span class="kw">def</span> <span class="fn">preprocess_image</span>(img):
+    <span class="str">"""Improve OCR accuracy by preprocessing the image."""</span>
+    img = img.convert(<span class="str">'L'</span>)              <span class="cm"># to grayscale</span>
+    img = <span class="cls">ImageEnhance</span>.<span class="cls">Contrast</span>(img).enhance(<span class="num">2.0</span>)  <span class="cm"># boost contrast</span>
+    img = img.filter(<span class="cls">ImageFilter</span>.<span class="cls">SHARPEN</span>)  <span class="cm"># sharpen edges</span>
+    <span class="kw">return</span> img
+
+<span class="kw">def</span> <span class="fn">load_image_as_document</span>(image_path: <span class="fn">str</span>) -> <span class="cls">Document</span>:
+    img = <span class="cls">Image</span>.<span class="fn">open</span>(image_path)
+    img = <span class="fn">preprocess_image</span>(img)
+
+    <span class="cm"># Run OCR — lang='eng' for English, 'hin' for Hindi, etc.</span>
+    text = pytesseract.image_to_string(img, lang=<span class="str">'eng'</span>)
+    text = text.strip()
+
+    <span class="kw">return</span> <span class="cls">Document</span>(
+        page_content=text,
+        metadata={
+            <span class="str">"source"</span>: image_path,
+            <span class="str">"type"</span>: <span class="str">"image"</span>,
+            <span class="str">"filename"</span>: <span class="cls">Path</span>(image_path).name
+        }
+    )
+
+<span class="cm"># --- Load all images from a folder ---</span>
+image_folder = <span class="cls">Path</span>(<span class="str">"data/images/"</span>)
+image_docs = []
+
+<span class="kw">for</span> ext <span class="kw">in</span> [<span class="str">"*.png"</span>, <span class="str">"*.jpg"</span>, <span class="str">"*.jpeg"</span>, <span class="str">"*.tiff"</span>]:
+    <span class="kw">for</span> img_path <span class="kw">in</span> image_folder.glob(ext):
+        doc = <span class="fn">load_image_as_document</span>(<span class="fn">str</span>(img_path))
+        <span class="kw">if</span> doc.page_content:       <span class="cm"># skip blank/empty images</span>
+            image_docs.append(doc)
+            <span class="fn">print</span>(<span class="str">f"✓ {img_path.name}: {len(doc.page_content)} chars extracted"</span>)
+        <span class="kw">else</span>:
+            <span class="fn">print</span>(<span class="str">f"✗ {img_path.name}: no text found (maybe a photo?)"</span>)
+
+<span class="fn">print</span>(<span class="str">f"\nTotal image documents: {len(image_docs)}"</span>)</pre>
+  </div>
+
+  <h3>Method B — Scanned PDF → Images → OCR</h3>
+  <div class="code-block">
+    <div class="code-header"><span>scanned_pdf_ocr.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">pdf2image</span> <span class="kw">import</span> <span class="fn">convert_from_path</span>
+<span class="kw">import</span> <span class="imp">pytesseract</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="kw">def</span> <span class="fn">load_scanned_pdf</span>(pdf_path: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Convert each page of a scanned PDF to an image, then OCR it."""</span>
+    <span class="cm"># dpi=300 is standard for good OCR quality</span>
+    pages = <span class="fn">convert_from_path</span>(pdf_path, dpi=<span class="num">300</span>)
+    docs = []
+
+    <span class="kw">for</span> i, page_image <span class="kw">in</span> <span class="fn">enumerate</span>(pages):
+        text = pytesseract.image_to_string(page_image, lang=<span class="str">'eng'</span>)
+        docs.append(<span class="cls">Document</span>(
+            page_content=text.strip(),
+            metadata={
+                <span class="str">"source"</span>: pdf_path,
+                <span class="str">"page"</span>: i,
+                <span class="str">"type"</span>: <span class="str">"scanned_pdf"</span>
+            }
+        ))
+        <span class="fn">print</span>(<span class="str">f"  Page {i+1}: {len(text)} chars"</span>)
+
+    <span class="kw">return</span> docs
+
+scanned_docs = <span class="fn">load_scanned_pdf</span>(<span class="str">"data/scanned_report.pdf"</span>)
+<span class="fn">print</span>(<span class="str">f"Extracted {len(scanned_docs)} pages from scanned PDF"</span>)</pre>
+  </div>
+
+  <div class="callout callout-tip">
+    <strong>Study tip:</strong> A scanned PDF has no embedded text — it's just images of pages. PyMuPDFLoader will return empty strings for these. Always check <code>doc.page_content.strip()</code> is not empty after loading PDFs — if it is, you have a scanned PDF and need OCR.
+  </div>
+</div>
+
+<!-- ===== TABLES ===== -->
+<div class="section" id="section-tables">
+  <div class="sec-title">Table / CSV Loader <span class="tag tag-table" style="font-size:14px;vertical-align:middle;margin-left:8px">TABLE</span></div>
+  <div class="sec-subtitle">Load structured data from CSV, Excel, and embedded PDF tables into your RAG pipeline.</div>
+
+  <div class="callout callout-info">
+    <strong>Key decision:</strong> Do you want one Document per row (good for lookups) or one Document per table (good for summary queries)? Both approaches are shown below.
+  </div>
+
+  <h3>Method A — CSV: one row per Document</h3>
+  <div class="code-block">
+    <div class="code-header"><span>csv_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> <span class="cls">CSVLoader</span>
+
+<span class="cm"># --- Simple CSV load (one Document per row) ---</span>
+loader = <span class="cls">CSVLoader</span>(
+    file_path=<span class="str">"data/products.csv"</span>,
+    source_column=<span class="str">"product_id"</span>,   <span class="cm"># used as metadata 'source'</span>
+    encoding=<span class="str">"utf-8"</span>
+)
+docs = loader.load()
+
+<span class="fn">print</span>(<span class="str">f"Rows loaded: {len(docs)}"</span>)
+<span class="fn">print</span>(<span class="str">f"\nSample document:"</span>)
+<span class="fn">print</span>(docs[<span class="num">0</span>].page_content)
+<span class="cm"># Output looks like:
+# product_id: P001
+# name: Wireless Mouse
+# price: 29.99
+# category: Electronics</span>
+
+<span class="fn">print</span>(<span class="str">f"\nMetadata: {docs[0].metadata}"</span>)</pre>
+  </div>
+
+  <h3>Method B — pandas for full control</h3>
+  <div class="code-block">
+    <div class="code-header"><span>pandas_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">import</span> <span class="imp">pandas</span> <span class="kw">as</span> pd
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="kw">def</span> <span class="fn">load_csv_as_documents</span>(csv_path: <span class="fn">str</span>, text_columns: <span class="fn">list</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Load CSV where specific columns are combined as page_content."""</span>
+    df = pd.<span class="fn">read_csv</span>(csv_path)
+    docs = []
+
+    <span class="kw">for</span> idx, row <span class="kw">in</span> df.<span class="fn">iterrows</span>():
+        <span class="cm"># Combine selected columns into readable text</span>
+        content = <span class="str">"\n"</span>.<span class="fn">join</span>([
+            <span class="str">f"{col}: {row[col]}"</span>
+            <span class="kw">for</span> col <span class="kw">in</span> text_columns
+            <span class="kw">if</span> pd.<span class="fn">notna</span>(row[col])
+        ])
+        docs.append(<span class="cls">Document</span>(
+            page_content=content,
+            metadata={
+                <span class="str">"source"</span>: csv_path,
+                <span class="str">"row"</span>: idx,
+                <span class="str">"type"</span>: <span class="str">"csv"</span>
+            }
+        ))
+    <span class="kw">return</span> docs
+
+<span class="cm"># --- Excel: same approach ---</span>
+<span class="kw">def</span> <span class="fn">load_excel_as_documents</span>(excel_path: <span class="fn">str</span>, sheet_name=<span class="num">0</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    df = pd.<span class="fn">read_excel</span>(excel_path, sheet_name=sheet_name)
+    docs = []
+    <span class="kw">for</span> idx, row <span class="kw">in</span> df.<span class="fn">iterrows</span>():
+        content = row.<span class="fn">to_string</span>()   <span class="cm"># all columns as text</span>
+        docs.append(<span class="cls">Document</span>(
+            page_content=content,
+            metadata={<span class="str">"source"</span>: excel_path, <span class="str">"row"</span>: idx, <span class="str">"sheet"</span>: sheet_name}
+        ))
+    <span class="kw">return</span> docs
+
+<span class="cm"># Usage:</span>
+csv_docs = <span class="fn">load_csv_as_documents</span>(
+    <span class="str">"data/employees.csv"</span>,
+    text_columns=[<span class="str">"name"</span>, <span class="str">"role"</span>, <span class="str">"department"</span>, <span class="str">"skills"</span>]
+)
+<span class="fn">print</span>(<span class="str">f"Loaded {len(csv_docs)} row documents"</span>)
+<span class="fn">print</span>(csv_docs[<span class="num">0</span>].page_content)</pre>
+  </div>
+
+  <div class="callout callout-tip">
+    <strong>Study tip:</strong> For numeric data (sales figures, measurements), convert the whole table to a markdown string — this preserves relationships between rows/columns and makes it easier for the LLM to reason about the data.
+  </div>
+</div>
+
+<!-- ===== TEXT ===== -->
+<div class="section" id="section-text">
+  <div class="sec-title">Text / HTML / JSON Loader <span class="tag tag-text" style="font-size:14px;vertical-align:middle;margin-left:8px">TEXT</span></div>
+  <div class="sec-subtitle">Load plain text files, web pages, and JSON data into your pipeline.</div>
+
+  <h3>Plain text &amp; markdown files</h3>
+  <div class="code-block">
+    <div class="code-header"><span>text_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> (
+    <span class="cls">TextLoader</span>,
+    <span class="cls">DirectoryLoader</span>,
+    <span class="cls">UnstructuredMarkdownLoader</span>
+)
+
+<span class="cm"># --- Single text file ---</span>
+loader = <span class="cls">TextLoader</span>(<span class="str">"data/notes.txt"</span>, encoding=<span class="str">"utf-8"</span>)
+docs = loader.load()
+<span class="fn">print</span>(docs[<span class="num">0</span>].page_content[:<span class="num">300</span>])
+
+<span class="cm"># --- All .txt files in a folder ---</span>
+loader = <span class="cls">DirectoryLoader</span>(<span class="str">"data/"</span>, glob=<span class="str">"**/*.txt"</span>, loader_cls=<span class="cls">TextLoader</span>)
+txt_docs = loader.load()
+
+<span class="cm"># --- Markdown files ---</span>
+loader = <span class="cls">UnstructuredMarkdownLoader</span>(<span class="str">"data/README.md"</span>)
+md_docs = loader.load()
+
+<span class="cm"># --- All markdown in a folder ---</span>
+loader = <span class="cls">DirectoryLoader</span>(
+    <span class="str">"data/"</span>, glob=<span class="str">"**/*.md"</span>,
+    loader_cls=<span class="cls">UnstructuredMarkdownLoader</span>
+)
+all_md_docs = loader.load()
+<span class="fn">print</span>(<span class="str">f"Loaded {len(all_md_docs)} markdown files"</span>)</pre>
+  </div>
+
+  <h3>HTML / Web pages</h3>
+  <div class="code-block">
+    <div class="code-header"><span>html_web_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> (
+    <span class="cls">WebBaseLoader</span>,
+    <span class="cls">BSHTMLLoader</span>
+)
+
+<span class="cm"># --- Load from URL (scrapes the page) ---</span>
+loader = <span class="cls">WebBaseLoader</span>(<span class="str">"https://en.wikipedia.org/wiki/LangChain"</span>)
+web_docs = loader.load()
+<span class="fn">print</span>(<span class="str">f"Web page text: {len(web_docs[0].page_content)} chars"</span>)
+
+<span class="cm"># --- Load multiple URLs ---</span>
+urls = [
+    <span class="str">"https://docs.langchain.com/docs/"</span>,
+    <span class="str">"https://python.langchain.com/docs/introduction"</span>
+]
+loader = <span class="cls">WebBaseLoader</span>(urls)
+multi_docs = loader.load()
+
+<span class="cm"># --- Load local HTML file ---</span>
+loader = <span class="cls">BSHTMLLoader</span>(<span class="str">"data/page.html"</span>)
+html_docs = loader.load()
+<span class="fn">print</span>(html_docs[<span class="num">0</span>].page_content[:<span class="num">200</span>])</pre>
+  </div>
+
+  <h3>JSON files</h3>
+  <div class="code-block">
+    <div class="code-header"><span>json_loader.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> <span class="cls">JSONLoader</span>
+<span class="kw">import</span> <span class="imp">json</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># --- JSONLoader with jq schema to pick fields ---</span>
+<span class="cm"># Example JSON: [{"id":1, "title":"...", "body":"...", "tags":["a","b"]}]</span>
+loader = <span class="cls">JSONLoader</span>(
+    file_path=<span class="str">"data/articles.json"</span>,
+    jq_schema=<span class="str">".[] | .body"</span>,       <span class="cm"># extract 'body' from each item</span>
+    text_content=<span class="dec">True</span>
+)
+json_docs = loader.load()
+
+<span class="cm"># --- Manual JSON load for full control ---</span>
+<span class="kw">def</span> <span class="fn">load_json_as_documents</span>(json_path: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="kw">with</span> <span class="fn">open</span>(json_path) <span class="kw">as</span> f:
+        data = json.<span class="fn">load</span>(f)
+
+    docs = []
+    <span class="kw">for</span> item <span class="kw">in</span> data:
+        content = <span class="str">f"""
+Title: {item.get('title', '')}
+Content: {item.get('body', '')}
+Tags: {', '.join(item.get('tags', []))}
+        """</span>.<span class="fn">strip</span>()
+
+        docs.append(<span class="cls">Document</span>(
+            page_content=content,
+            metadata={
+                <span class="str">"source"</span>: json_path,
+                <span class="str">"id"</span>: item.get(<span class="str">"id"</span>),
+                <span class="str">"type"</span>: <span class="str">"json"</span>
+            }
+        ))
+    <span class="kw">return</span> docs</pre>
+  </div>
+</div>
+
+<!-- ===== FULL PIPELINE ===== -->
+<div class="section" id="section-full">
+  <div class="sec-title">Full Ingestion Pipeline</div>
+  <div class="sec-subtitle">One script that loads all data types, tags them, and produces a unified list of Documents ready for chunking.</div>
+
+  <div class="callout callout-info">
+    <strong>This is your practice file.</strong> Run this against a folder of mixed documents and inspect the output. The next stage (chunking) takes this <code>all_docs</code> list as input.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span>stage1_ingestion_pipeline.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+    <pre><span class="str">"""
+RAG Pipeline — Stage 1: Data Ingestion
+Handles: PDF, Scanned PDF (OCR), Images, CSV, Excel, TXT, MD, HTML, JSON
+Output : list[Document] ready for Stage 2 (chunking)
+"""</span>
+
+<span class="kw">import</span> <span class="imp">os</span>
+<span class="kw">from</span> <span class="imp">pathlib</span> <span class="kw">import</span> <span class="cls">Path</span>
+<span class="kw">import</span> <span class="imp">pandas</span> <span class="kw">as</span> pd
+<span class="kw">import</span> <span class="imp">pytesseract</span>
+<span class="kw">from</span> <span class="imp">PIL</span> <span class="kw">import</span> <span class="cls">Image</span>
+
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> (
+    <span class="cls">PyMuPDFLoader</span>,
+    <span class="cls">CSVLoader</span>,
+    <span class="cls">TextLoader</span>,
+    <span class="cls">BSHTMLLoader</span>,
+    <span class="cls">JSONLoader</span>,
+    <span class="cls">UnstructuredMarkdownLoader</span>,
+)
+
+
+<span class="cm"># ─────────────────────────────────────────────
+# 1. PDF LOADER
+# ─────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">ingest_pdfs</span>(folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    docs = []
+    <span class="kw">for</span> pdf <span class="kw">in</span> <span class="cls">Path</span>(folder).glob(<span class="str">"*.pdf"</span>):
+        loader = <span class="cls">PyMuPDFLoader</span>(<span class="fn">str</span>(pdf))
+        pages = loader.load()
+        <span class="kw">for</span> doc <span class="kw">in</span> pages:
+            doc.metadata[<span class="str">"data_type"</span>] = <span class="str">"pdf"</span>  <span class="cm"># tag the type</span>
+        docs.extend(pages)
+        <span class="fn">print</span>(<span class="str">f"  [PDF] {pdf.name} → {len(pages)} pages"</span>)
+    <span class="kw">return</span> docs
+
+
+<span class="cm"># ─────────────────────────────────────────────
+# 2. IMAGE OCR LOADER
+# ─────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">ingest_images</span>(folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    docs = []
+    extensions = [<span class="str">"*.png"</span>, <span class="str">"*.jpg"</span>, <span class="str">"*.jpeg"</span>, <span class="str">"*.tiff"</span>]
+    <span class="kw">for</span> ext <span class="kw">in</span> extensions:
+        <span class="kw">for</span> img_path <span class="kw">in</span> <span class="cls">Path</span>(folder).glob(ext):
+            <span class="kw">try</span>:
+                img = <span class="cls">Image</span>.<span class="fn">open</span>(img_path).convert(<span class="str">"L"</span>)
+                text = pytesseract.image_to_string(img).strip()
+                <span class="kw">if</span> text:
+                    docs.append(<span class="cls">Document</span>(
+                        page_content=text,
+                        metadata={
+                            <span class="str">"source"</span>: <span class="fn">str</span>(img_path),
+                            <span class="str">"data_type"</span>: <span class="str">"image"</span>,
+                            <span class="str">"filename"</span>: img_path.name
+                        }
+                    ))
+                    <span class="fn">print</span>(<span class="str">f"  [IMG] {img_path.name} → {len(text)} chars"</span>)
+            <span class="kw">except</span> <span class="cls">Exception</span> <span class="kw">as</span> e:
+                <span class="fn">print</span>(<span class="str">f"  [IMG] {img_path.name} → ERROR: {e}"</span>)
+    <span class="kw">return</span> docs
+
+
+<span class="cm"># ─────────────────────────────────────────────
+# 3. CSV / EXCEL LOADER
+# ─────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">ingest_tables</span>(folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    docs = []
+    <span class="cm"># CSV</span>
+    <span class="kw">for</span> csv_path <span class="kw">in</span> <span class="cls">Path</span>(folder).glob(<span class="str">"*.csv"</span>):
+        df = pd.<span class="fn">read_csv</span>(csv_path)
+        <span class="kw">for</span> idx, row <span class="kw">in</span> df.<span class="fn">iterrows</span>():
+            docs.append(<span class="cls">Document</span>(
+                page_content=row.<span class="fn">to_string</span>(),
+                metadata={<span class="str">"source"</span>: <span class="fn">str</span>(csv_path), <span class="str">"row"</span>: idx, <span class="str">"data_type"</span>: <span class="str">"csv"</span>}
+            ))
+        <span class="fn">print</span>(<span class="str">f"  [CSV] {csv_path.name} → {len(df)} rows"</span>)
+    <span class="cm"># Excel</span>
+    <span class="kw">for</span> xl_path <span class="kw">in</span> <span class="cls">Path</span>(folder).glob(<span class="str">"*.xlsx"</span>):
+        df = pd.<span class="fn">read_excel</span>(xl_path)
+        <span class="kw">for</span> idx, row <span class="kw">in</span> df.<span class="fn">iterrows</span>():
+            docs.append(<span class="cls">Document</span>(
+                page_content=row.<span class="fn">to_string</span>(),
+                metadata={<span class="str">"source"</span>: <span class="fn">str</span>(xl_path), <span class="str">"row"</span>: idx, <span class="str">"data_type"</span>: <span class="str">"excel"</span>}
+            ))
+        <span class="fn">print</span>(<span class="str">f"  [XLS] {xl_path.name} → {len(df)} rows"</span>)
+    <span class="kw">return</span> docs
+
+
+<span class="cm"># ─────────────────────────────────────────────
+# 4. TEXT / MD / HTML / JSON LOADER
+# ─────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">ingest_text_files</span>(folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    docs = []
+    loaders = {
+        <span class="str">"*.txt"</span>:  (<span class="cls">TextLoader</span>,                  <span class="str">"txt"</span>),
+        <span class="str">"*.md"</span>:   (<span class="cls">UnstructuredMarkdownLoader</span>,   <span class="str">"markdown"</span>),
+        <span class="str">"*.html"</span>: (<span class="cls">BSHTMLLoader</span>,               <span class="str">"html"</span>),
+    }
+    <span class="kw">for</span> pattern, (loader_cls, dtype) <span class="kw">in</span> loaders.items():
+        <span class="kw">for</span> fpath <span class="kw">in</span> <span class="cls">Path</span>(folder).glob(pattern):
+            <span class="kw">try</span>:
+                loaded = loader_cls(<span class="fn">str</span>(fpath)).load()
+                <span class="kw">for</span> d <span class="kw">in</span> loaded:
+                    d.metadata[<span class="str">"data_type"</span>] = dtype
+                docs.extend(loaded)
+                <span class="fn">print</span>(<span class="str">f"  [{dtype.upper()}] {fpath.name} → {len(loaded)} docs"</span>)
+            <span class="kw">except</span> <span class="cls">Exception</span> <span class="kw">as</span> e:
+                <span class="fn">print</span>(<span class="str">f"  ERROR loading {fpath.name}: {e}"</span>)
+    <span class="kw">return</span> docs
+
+
+<span class="cm"># ─────────────────────────────────────────────
+# MAIN — RUN ALL LOADERS
+# ─────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">run_ingestion</span>(data_folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="fn">print</span>(<span class="str">f"\n{'='*50}"</span>)
+    <span class="fn">print</span>(<span class="str">f"RAG Stage 1 — Ingesting from: {data_folder}"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*50}\n"</span>)
+
+    all_docs = []
+    all_docs.extend(<span class="fn">ingest_pdfs</span>(data_folder))
+    all_docs.extend(<span class="fn">ingest_images</span>(data_folder))
+    all_docs.extend(<span class="fn">ingest_tables</span>(data_folder))
+    all_docs.extend(<span class="fn">ingest_text_files</span>(data_folder))
+
+    <span class="fn">print</span>(<span class="str">f"\n{'='*50}"</span>)
+    <span class="fn">print</span>(<span class="str">f"✅ Total documents ingested: {len(all_docs)}"</span>)
+
+    <span class="cm"># Summary by type</span>
+    <span class="kw">from</span> <span class="imp">collections</span> <span class="kw">import</span> <span class="cls">Counter</span>
+    counts = <span class="cls">Counter</span>(d.metadata.get(<span class="str">"data_type"</span>) <span class="kw">for</span> d <span class="kw">in</span> all_docs)
+    <span class="kw">for</span> dtype, count <span class="kw">in</span> counts.items():
+        <span class="fn">print</span>(<span class="str">f"  {dtype:10s}: {count} documents"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*50}\n"</span>)
+
+    <span class="kw">return</span> all_docs   <span class="cm"># ← pass this to Stage 2 (chunking)</span>
+
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    docs = <span class="fn">run_ingestion</span>(<span class="str">"./data"</span>)
+
+    <span class="cm"># Quick sanity check</span>
+    <span class="fn">print</span>(<span class="str">"Sample document preview:"</span>)
+    <span class="fn">print</span>(<span class="str">"  Source:"</span>, docs[<span class="num">0</span>].metadata[<span class="str">'source'</span>])
+    <span class="fn">print</span>(<span class="str">"  Type  :"</span>, docs[<span class="num">0</span>].metadata[<span class="str">'data_type'</span>])
+    <span class="fn">print</span>(<span class="str">"  Text  :"</span>, docs[<span class="num">0</span>].page_content[:<span class="num">200</span>])</pre>
+  </div>
+
+  <div class="callout callout-tip">
+    <strong>How to practice:</strong> Create a <code>data/</code> folder, drop in one PDF, one image (screenshot), one CSV, and one .txt file. Run this script. When you see the summary output with counts per type, Stage 1 is working. That <code>all_docs</code> list flows directly into Stage 2.
+  </div>
+
+  <div class="summary">
+    <h4>Stage 1 output → Stage 2 input</h4>
+    <div class="summary-row"><span class="label">Return type</span><span class="val">list[Document]</span></div>
+    <div class="summary-row"><span class="label">page_content</span><span class="val">extracted text (string)</span></div>
+    <div class="summary-row"><span class="label">metadata['source']</span><span class="val">file path</span></div>
+    <div class="summary-row"><span class="label">metadata['data_type']</span><span class="val">pdf / image / csv / txt…</span></div>
+    <div class="summary-row"><span class="label">Next stage</span><span class="val">RecursiveCharacterTextSplitter</span></div>
+  </div>
+</div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  event.target.closest('.nav-tab').classList.add('active');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>

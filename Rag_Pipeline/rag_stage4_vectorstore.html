@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAG Stage 4 — Vector Store Masterclass</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#09111a;--surface:#0f1a26;--surface2:#152030;--surface3:#1b2a3a;
+  --border:#1e3048;--accent:#38bdf8;--accent2:#34d399;--accent3:#fbbf24;
+  --accent4:#f472b6;--accent5:#a78bfa;--text:#c8d8e8;--muted:#4a6580;
+  --code-bg:#060e18;--white:#e8f2fa;
+  --free:#34d399;--paid:#fbbf24;--local:#38bdf8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.75;}
+
+/* HEADER */
+.header{padding:52px 44px 36px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.header::after{content:'';position:absolute;top:-80px;right:-40px;width:400px;height:400px;background:radial-gradient(circle,rgba(56,189,248,.09) 0%,transparent 70%);pointer-events:none;}
+.header::before{content:'';position:absolute;bottom:-60px;left:260px;width:320px;height:320px;background:radial-gradient(circle,rgba(52,211,153,.07) 0%,transparent 70%);pointer-events:none;}
+.stage-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 14px;border-radius:20px;margin-bottom:18px;letter-spacing:1.2px;}
+.header h1{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--white);letter-spacing:-1.5px;margin-bottom:10px;}
+.header h1 em{color:var(--accent);font-style:normal;}
+.header p{color:var(--muted);font-size:14.5px;max-width:640px;font-weight:300;}
+.header-meta{display:flex;gap:14px;margin-top:20px;flex-wrap:wrap;}
+.meta-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--muted);}
+.meta-pill span{color:var(--white);font-weight:500;}
+
+/* NAV */
+.nav{display:flex;padding:0 44px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:100;}
+.nav-tab{padding:14px 16px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:7px;user-select:none;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--white);border-bottom-color:var(--accent);}
+.nav-tab .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* CONTENT */
+.content{padding:44px;max-width:960px;}
+.section{display:none;}
+.section.active{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* TYPOGRAPHY */
+.sec-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--white);margin-bottom:8px;letter-spacing:-.5px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.sec-subtitle{color:var(--muted);font-size:14px;margin-bottom:30px;}
+h3{font-family:'Syne',sans-serif;font-size:15.5px;font-weight:700;color:var(--white);margin:32px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.divider{height:1px;background:var(--border);margin:36px 0;}
+
+/* TAGS */
+.tag{display:inline-block;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.6px;font-family:'JetBrains Mono',monospace;}
+.tag-blue{background:rgba(56,189,248,.12);color:#7dd3fc;border:1px solid rgba(56,189,248,.25);}
+.tag-green{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.25);}
+.tag-amber{background:rgba(251,191,36,.12);color:#fde68a;border:1px solid rgba(251,191,36,.25);}
+.tag-pink{background:rgba(244,114,182,.12);color:#f9a8d4;border:1px solid rgba(244,114,182,.25);}
+.tag-purple{background:rgba(167,139,250,.12);color:#c4b5fd;border:1px solid rgba(167,139,250,.25);}
+.tag-free{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.25);}
+.tag-paid{background:rgba(251,191,36,.12);color:#fde68a;border:1px solid rgba(251,191,36,.25);}
+
+/* CODE */
+.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:18px 0;}
+.code-header{background:var(--surface2);padding:10px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+.code-header .fname{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+.copy-btn{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--accent);font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.copy-btn:hover{background:rgba(56,189,248,.2);}
+.copy-btn.copied{color:var(--accent2);}
+pre{padding:22px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.85;color:#b0c4d8;}
+.kw{color:#c792ea;}.fn{color:#82aaff;}.str{color:#c3e88d;}.cm{color:#2d4a5e;font-style:italic;}
+.imp{color:#ffcb6b;}.num{color:#f78c6c;}.cls{color:#ffcb6b;}.dec{color:#89ddff;}.op{color:#89ddff;}
+
+/* CALLOUTS */
+.callout{padding:16px 20px;border-radius:10px;margin:18px 0;border-left:3px solid;font-size:13.5px;}
+.callout-blue{background:rgba(56,189,248,.07);border-color:var(--accent);color:#7dd3fc;}
+.callout-green{background:rgba(52,211,153,.07);border-color:var(--accent2);color:#86efbc;}
+.callout-amber{background:rgba(251,191,36,.07);border-color:var(--accent3);color:#d4b87a;}
+.callout-pink{background:rgba(244,114,182,.07);border-color:var(--accent4);color:#f9a8d4;}
+.callout-purple{background:rgba(167,139,250,.07);border-color:var(--accent5);color:#c4b5fd;}
+.callout strong{color:var(--white);}
+.callout code{font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d;}
+
+/* DB CARDS */
+.db-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;}
+.db-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;border-top:3px solid transparent;transition:all .2s;}
+.db-card:hover{transform:translateY(-2px);}
+.db-card.free-card{border-top-color:var(--free);}
+.db-card.paid-card{border-top-color:var(--paid);}
+.db-card.cloud-card{border-top-color:var(--accent);}
+.dbc-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.dbc-type{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.dbc-desc{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+.dbc-stats{display:flex;gap:7px;flex-wrap:wrap;}
+.dbc-stat{background:var(--surface2);border:1px solid var(--border);padding:3px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);}
+.dbc-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+
+/* FLOW STEPS */
+.flow-steps{margin:22px 0;}
+.flow-step{display:flex;gap:16px;margin-bottom:14px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:var(--accent);font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.step-body strong{color:var(--white);font-size:14px;}
+.step-body p{color:var(--muted);font-size:12.5px;margin-top:2px;}
+
+/* COMPARISON TABLE */
+.comp-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:16px 0;}
+.comp-table th{text-align:left;padding:10px 14px;background:var(--surface2);color:var(--muted);font-weight:500;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.comp-table td{padding:10px 14px;border-bottom:1px solid rgba(30,48,72,.6);vertical-align:middle;}
+.comp-table tr:hover td{background:rgba(255,255,255,.015);}
+.comp-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(56,189,248,.08);padding:1px 6px;border-radius:3px;}
+.price-free{color:var(--free);font-weight:700;font-size:11.5px;}
+.price-paid{color:var(--paid);font-weight:700;font-size:11.5px;}
+
+/* DECISION TREE */
+.dtree{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0;}
+.dtree-q{background:var(--surface2);border:1px solid rgba(56,189,248,.25);color:var(--accent);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:14px;}
+.dtree-row{display:flex;gap:10px;margin-bottom:10px;padding-left:16px;align-items:flex-start;}
+.dtree-cond{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);white-space:nowrap;background:rgba(251,191,36,.08);padding:2px 8px;border-radius:4px;margin-top:2px;flex-shrink:0;}
+.dtree-result{font-size:13px;color:var(--text);}
+.dtree-result strong{color:var(--accent2);}
+
+/* ARCHITECTURE DIAGRAM */
+.arch-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0;}
+.arch-row{display:flex;align-items:center;gap:0;margin-bottom:6px;}
+.arch-node{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text);text-align:center;min-width:120px;}
+.arch-node.highlight{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.06);}
+.arch-node.meta{border-color:var(--accent3);color:var(--accent3);background:rgba(251,191,36,.06);}
+.arch-node.vec{border-color:var(--accent5);color:var(--accent5);background:rgba(167,139,250,.06);}
+.arch-arrow{color:var(--muted);font-size:18px;padding:0 8px;}
+.arch-label{font-size:10.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px;text-align:center;}
+
+/* METADATA TABLE */
+.meta-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:16px 0;}
+.meta-table th{text-align:left;padding:10px 14px;background:var(--surface2);color:var(--muted);font-weight:500;font-size:10.5px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.meta-table td{padding:10px 14px;border-bottom:1px solid rgba(30,48,72,.5);vertical-align:top;}
+.meta-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);background:rgba(251,191,36,.06);padding:1px 6px;border-radius:3px;}
+.meta-table .good{color:var(--free);}
+
+/* SUMMARY */
+.summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:28px;}
+.summary h4{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--white);margin-bottom:16px;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(30,48,72,.5);font-size:13px;}
+.summary-row:last-child{border-bottom:none;}
+.summary-row .lbl{color:var(--muted);}
+.summary-row .val{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--accent);}
+
+/* HNSW VIS */
+.hnsw-vis{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0;}
+.hnsw-layer{margin-bottom:18px;}
+.hnsw-layer-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);margin-bottom:8px;}
+.hnsw-nodes{display:flex;gap:0;align-items:center;flex-wrap:wrap;}
+.hnsw-node{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;flex-shrink:0;margin:3px;}
+.hnsw-edge{height:1px;flex:1;min-width:12px;margin:3px 0;}
+.l2-node{background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.4);color:var(--accent);}
+.l1-node{background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:var(--accent5);}
+.l0-node{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:var(--accent2);}
+.l2-edge{background:rgba(56,189,248,.25);}
+.l1-edge{background:rgba(167,139,250,.2);}
+.l0-edge{background:rgba(52,211,153,.2);}
+.query-node{background:rgba(251,191,36,.2);border:2px solid var(--accent3);color:var(--accent3);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="stage-badge">◆ RAG PIPELINE · STAGE 4 OF 6</div>
+  <h1>Vector Store <em>Masterclass</em></h1>
+  <p>Internal architecture of vector databases, how data is stored and searched, metadata filtering, all free and paid options, and complete LangChain code for ChromaDB, FAISS, Qdrant, Pinecone, Weaviate and more.</p>
+  <div class="header-meta">
+    <div class="meta-pill">Input: <span>embed_model + chunks</span></div>
+    <div class="meta-pill">Output: <span>searchable vector store</span></div>
+    <div class="meta-pill">Free options: <span>FAISS · Chroma · Qdrant · pgvector</span></div>
+    <div class="meta-pill">Paid cloud: <span>Pinecone · Weaviate · Qdrant Cloud</span></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showTab('concept')"><div class="dot" style="background:#38bdf8"></div>How it Works</div>
+  <div class="nav-tab" onclick="showTab('arch')"><div class="dot" style="background:#34d399"></div>Internal Architecture</div>
+  <div class="nav-tab" onclick="showTab('metadata')"><div class="dot" style="background:#fbbf24"></div>Metadata & Filtering</div>
+  <div class="nav-tab" onclick="showTab('databases')"><div class="dot" style="background:#a78bfa"></div>All Databases</div>
+  <div class="nav-tab" onclick="showTab('choose')"><div class="dot" style="background:#f472b6"></div>How to Choose</div>
+  <div class="nav-tab" onclick="showTab('chroma')"><div class="dot" style="background:#34d399"></div>ChromaDB</div>
+  <div class="nav-tab" onclick="showTab('faiss')"><div class="dot" style="background:#38bdf8"></div>FAISS</div>
+  <div class="nav-tab" onclick="showTab('qdrant')"><div class="dot" style="background:#a78bfa"></div>Qdrant</div>
+  <div class="nav-tab" onclick="showTab('pinecone')"><div class="dot" style="background:#fbbf24"></div>Pinecone</div>
+  <div class="nav-tab" onclick="showTab('others')"><div class="dot" style="background:#f472b6"></div>Weaviate + pgvector</div>
+  <div class="nav-tab" onclick="showTab('pipeline')"><div class="dot" style="background:#38bdf8"></div>Full Pipeline</div>
+</div>
+
+<div class="content">
+
+<!-- ══════ HOW IT WORKS ══════ -->
+<div class="section active" id="section-concept">
+  <div class="sec-title">How Vector Databases Work <span class="tag tag-blue">START HERE</span></div>
+  <div class="sec-subtitle">What makes vector databases fundamentally different from SQL/NoSQL — and why you need one for RAG.</div>
+
+  <div class="callout callout-blue">
+    <strong>One-line definition:</strong> A vector database stores embeddings (float vectors) alongside their original text and metadata, and lets you find the <em>most semantically similar</em> vectors to a query in milliseconds — even among billions of records.
+  </div>
+
+  <h3>Traditional DB vs Vector DB — the key difference</h3>
+  <div class="arch-box">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;color:var(--white);margin-bottom:12px;font-size:13px;">🗄️ Traditional SQL/NoSQL</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.9;">
+          Query: "Find rows WHERE category = 'AI'"<br>
+          Match: <span style="color:var(--accent3);">exact match only</span><br>
+          "AI research" ≠ "artificial intelligence"<br><br>
+          <span style="color:var(--muted);">Works great for structured data, fails for semantic meaning.</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;color:var(--white);margin-bottom:12px;font-size:13px;">🔮 Vector Database</div>
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.9;">
+          Query: embed("What is artificial intelligence?")<br>
+          Match: <span style="color:var(--accent2);">semantic similarity</span><br>
+          "AI research" ✓ "machine learning" ✓ "deep learning" ✓<br><br>
+          <span style="color:var(--muted);">Finds meaning, not just exact keywords.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>What is stored inside a vector database record?</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">what_is_stored.py — anatomy of a vector DB record</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># Every record in a vector database has THREE components:</span>
+
+record = {
+    <span class="cm"># 1. THE VECTOR — the float embedding (the actual searchable data)</span>
+    <span class="str">"embedding"</span>: [<span class="num">0.021</span>, <span class="num">-0.134</span>, <span class="num">0.876</span>, <span class="num">0.003</span>, ...],  <span class="cm"># 384–3072 floats</span>
+
+    <span class="cm"># 2. THE DOCUMENT — the original text (what gets returned to LLM)</span>
+    <span class="str">"document"</span>: <span class="str">"Retrieval Augmented Generation (RAG) is a technique..."</span>,
+
+    <span class="cm"># 3. THE METADATA — structured info for filtering (optional but powerful)</span>
+    <span class="str">"metadata"</span>: {
+        <span class="str">"source"</span>:     <span class="str">"docs/rag_guide.pdf"</span>,
+        <span class="str">"page"</span>:       <span class="num">3</span>,
+        <span class="str">"data_type"</span>:  <span class="str">"pdf"</span>,
+        <span class="str">"chapter"</span>:    <span class="str">"Introduction"</span>,
+        <span class="str">"date"</span>:       <span class="str">"2025-01-15"</span>,
+        <span class="str">"language"</span>:   <span class="str">"en"</span>,
+        <span class="str">"word_count"</span>: <span class="num">142</span>,
+    }
+}
+
+<span class="cm"># When you query the database:
+# 1. Your question gets embedded → query_vector
+# 2. Database finds top-k records whose embedding is closest to query_vector
+# 3. Returns document + metadata (NOT the raw vectors)
+# 4. You pass documents to LLM as context → final answer</span>
+
+<span class="cm"># Key insight: you NEVER manually compare vectors yourself.
+# The vector DB does it for you, in milliseconds, for millions of records.</span></pre>
+  </div>
+
+  <h3>The RAG retrieval loop — what happens at query time</h3>
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>User asks a question</strong><p>"What are the side effects of aspirin?"</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Question gets embedded</strong><p>Same embedding model used to build the index → query vector [0.12, -0.34, ...]</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Vector DB finds nearest neighbours</strong><p>HNSW graph search — finds top-5 most similar chunk vectors in milliseconds.</p></div></div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-body"><strong>Documents returned</strong><p>The text content of those 5 chunks is returned — not the vectors themselves.</p></div></div>
+    <div class="flow-step"><div class="step-num">5</div><div class="step-body"><strong>LLM generates the answer</strong><p>Prompt = "Answer this using only this context: [5 chunks] Question: [user question]"</p></div></div>
+  </div>
+</div>
+
+<!-- ══════ INTERNAL ARCHITECTURE ══════ -->
+<div class="section" id="section-arch">
+  <div class="sec-title">Internal Architecture <span class="tag tag-green">DEEP DIVE</span></div>
+  <div class="sec-subtitle">How vectors are actually stored, indexed, and searched inside the database. Understanding this helps you tune performance and choose the right database.</div>
+
+  <div class="callout callout-green">
+    <strong>The core problem:</strong> With 1 million 768-dim vectors, comparing a query to every vector (brute force) = 1 million distance calculations. At 10M vectors, that's 10 million. Too slow for real-time use. Vector databases solve this with <em>indexing algorithms</em> — ANN (Approximate Nearest Neighbour) search.
+  </div>
+
+  <h3>ANN Index Types — the algorithms inside vector databases</h3>
+  <table class="comp-table">
+    <tr><th>Algorithm</th><th>Full Name</th><th>How It Works</th><th>Speed</th><th>Recall</th><th>Used By</th></tr>
+    <tr><td><strong>HNSW</strong></td><td>Hierarchical Navigable Small World</td><td>Multi-layer graph; navigate from coarse to fine layers</td><td>⚡⚡⚡⚡</td><td>99%+</td><td>All major DBs</td></tr>
+    <tr><td><strong>IVF</strong></td><td>Inverted File Index</td><td>Cluster vectors into buckets; search only relevant buckets</td><td>⚡⚡⚡</td><td>95%+</td><td>FAISS, Milvus</td></tr>
+    <tr><td><strong>Flat</strong></td><td>Brute-force exact search</td><td>Compare query to every vector — 100% recall, slow at scale</td><td>⚡</td><td>100%</td><td>FAISS, small DBs</td></tr>
+    <tr><td><strong>PQ</strong></td><td>Product Quantization</td><td>Compress vectors → much less RAM; slightly lower recall</td><td>⚡⚡⚡⚡</td><td>92%+</td><td>FAISS (IVFPQ)</td></tr>
+    <tr><td><strong>DiskANN</strong></td><td>Disk-based ANN</td><td>Store index on disk not RAM; handles billions of vectors</td><td>⚡⚡⚡</td><td>97%+</td><td>Weaviate, Milvus</td></tr>
+  </table>
+
+  <h3>HNSW — the dominant algorithm (used in almost every vector DB)</h3>
+  <div class="hnsw-vis">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">HNSW builds a hierarchical graph. Search starts at the sparse top layer (fast navigation) and zooms into dense lower layers (precise matching). Think of it like Google Maps — start with continent view, zoom to street level.</div>
+
+    <div class="hnsw-layer">
+      <div class="hnsw-layer-label">LAYER 2 (top — sparse, long-range connections, ~2% of nodes)</div>
+      <div class="hnsw-nodes">
+        <div class="hnsw-node l2-node">A</div>
+        <div class="hnsw-edge l2-edge"></div>
+        <div class="hnsw-node l2-node">E</div>
+        <div class="hnsw-edge l2-edge"></div>
+        <div class="hnsw-node query-node">Q</div>
+        <div style="font-size:10px;color:var(--accent3);margin-left:8px;">← entry point, navigate to nearest</div>
+      </div>
+    </div>
+    <div class="hnsw-layer">
+      <div class="hnsw-layer-label">LAYER 1 (middle — denser, shorter connections, ~20% of nodes)</div>
+      <div class="hnsw-nodes">
+        <div class="hnsw-node l1-node">A</div>
+        <div class="hnsw-edge l1-edge"></div>
+        <div class="hnsw-node l1-node">C</div>
+        <div class="hnsw-edge l1-edge"></div>
+        <div class="hnsw-node l1-node">D</div>
+        <div class="hnsw-edge l1-edge"></div>
+        <div class="hnsw-node l1-node">E</div>
+        <div class="hnsw-edge l1-edge"></div>
+        <div class="hnsw-node l1-node">F</div>
+        <div style="font-size:10px;color:var(--accent5);margin-left:8px;">← zoom in to region</div>
+      </div>
+    </div>
+    <div class="hnsw-layer">
+      <div class="hnsw-layer-label">LAYER 0 (bottom — all nodes, short-range connections, full precision)</div>
+      <div class="hnsw-nodes">
+        <div class="hnsw-node l0-node">A</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">B</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">C</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">D</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">E</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">F</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">G</div><div class="hnsw-edge l0-edge"></div>
+        <div class="hnsw-node l0-node">H</div>
+        <div style="font-size:10px;color:var(--accent2);margin-left:8px;">← final precise top-k results returned</div>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.7;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
+      <strong style="color:var(--white);">Key HNSW parameters you'll tune:</strong><br>
+      <code style="color:var(--accent3);">M</code> — max connections per node per layer (16–64). Higher = better recall but more RAM.<br>
+      <code style="color:var(--accent3);">ef_construction</code> — how many candidates considered during build (100–200). Higher = better index, slower build.<br>
+      <code style="color:var(--accent3);">ef_search</code> — search beam width at query time (50–100). Higher = better recall, slower queries.
+    </div>
+  </div>
+
+  <h3>Distance Metrics — how "closeness" is measured</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">distance_metrics.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+
+a = np.array([<span class="num">0.1</span>, <span class="num">0.8</span>, <span class="num">0.3</span>])  <span class="cm"># embedding of chunk</span>
+b = np.array([<span class="num">0.2</span>, <span class="num">0.7</span>, <span class="num">0.4</span>])  <span class="cm"># embedding of query</span>
+
+<span class="cm"># ── 1. COSINE SIMILARITY (most common for text) ────────
+# Measures the angle between vectors — ignores magnitude
+# Range: -1 to 1  |  1 = identical, 0 = unrelated, -1 = opposite
+# Use when: all text embeddings (normalized vectors)</span>
+cosine = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+<span class="fn">print</span>(<span class="str">f"Cosine similarity: {cosine:.4f}"</span>)
+
+<span class="cm"># ── 2. EUCLIDEAN DISTANCE (L2) ─────────────────────────
+# Straight-line distance in vector space
+# Range: 0 to ∞  |  0 = identical, higher = more different
+# Use when: image embeddings, spatial data</span>
+euclidean = np.linalg.norm(a - b)
+<span class="fn">print</span>(<span class="str">f"Euclidean distance: {euclidean:.4f}"</span>)
+
+<span class="cm"># ── 3. DOT PRODUCT ────────────────────────────────────
+# Like cosine but also considers vector magnitude
+# Fast to compute. Use when: OpenAI embeddings (they recommend it)</span>
+dot = np.dot(a, b)
+<span class="fn">print</span>(<span class="str">f"Dot product: {dot:.4f}"</span>)
+
+<span class="cm"># ── Which to use in your RAG pipeline? ────────────────
+# Text with normalized embeddings (bge, MiniLM, nomic) → COSINE
+# OpenAI embeddings → DOT PRODUCT (OpenAI recommends this)
+# Image/spatial → EUCLIDEAN
+# Rule: if unsure → use COSINE. It works for everything.</span></pre>
+  </div>
+
+  <h3>What happens physically when you store a vector</h3>
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Vector inserted</strong><p>The float array is stored in the DB's vector storage layer (RAM or disk depending on DB).</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>HNSW graph updated</strong><p>The new vector is probabilistically assigned to graph layers and connected to M nearest neighbours per layer.</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Metadata stored separately</strong><p>The document text and metadata dict are stored in a standard key-value or document store alongside the vector.</p></div></div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-body"><strong>ID links everything</strong><p>A unique ID links the vector index entry → vector array → document → metadata. Everything is retrievable via this ID.</p></div></div>
+    <div class="flow-step"><div class="step-num">5</div><div class="step-body"><strong>Persisted to disk</strong><p>Most DBs persist the HNSW graph to disk so the index survives restarts without rebuilding.</p></div></div>
+  </div>
+</div>
+
+<!-- ══════ METADATA ══════ -->
+<div class="section" id="section-metadata">
+  <div class="sec-title">Metadata — Structure, Significance &amp; Filtering <span class="tag tag-amber">CRITICAL CONCEPT</span></div>
+  <div class="sec-subtitle">Metadata is the second most important concept after the vector itself. Without it, you can only search by semantic similarity. With it, you can combine semantic search with structured filtering.</div>
+
+  <div class="callout callout-amber">
+    <strong>Why metadata matters:</strong> "Find the top 5 chunks similar to my query" is basic retrieval. "Find the top 5 chunks similar to my query <em>from PDFs published after 2024, in the 'Introduction' section, in English</em>" — that's metadata-filtered retrieval. It dramatically reduces noise in your RAG context.
+  </div>
+
+  <h3>What metadata to store — a complete schema</h3>
+  <table class="meta-table">
+    <tr><th>Metadata Field</th><th>Type</th><th>Why It Matters</th><th>Example Value</th></tr>
+    <tr><td><code>source</code></td><td>string</td><td class="good">Filter by file. "Only search docs/policy.pdf"</td><td>"docs/hr_policy.pdf"</td></tr>
+    <tr><td><code>data_type</code></td><td>string</td><td class="good">Filter by modality. "Only search PDFs not CSVs"</td><td>"pdf" / "markdown" / "csv"</td></tr>
+    <tr><td><code>page</code></td><td>int</td><td>Debugging, citation. Know which page was retrieved.</td><td>3</td></tr>
+    <tr><td><code>chunk_index</code></td><td>int</td><td>Position in document for context reconstruction.</td><td>7</td></tr>
+    <tr><td><code>start_index</code></td><td>int</td><td>Char position in original text for exact citation.</td><td>1240</td></tr>
+    <tr><td><code>chapter</code></td><td>string</td><td class="good">Filter by section. "Only search Introduction chapter"</td><td>"Chapter 3: Results"</td></tr>
+    <tr><td><code>H1</code>/<code>H2</code></td><td>string</td><td class="good">Markdown header hierarchy. Rich section filtering.</td><td>"Setup Guide"</td></tr>
+    <tr><td><code>date</code></td><td>string</td><td class="good">Filter by recency. "Only docs from 2025+"</td><td>"2025-03-15"</td></tr>
+    <tr><td><code>language</code></td><td>string</td><td class="good">Filter by language for multilingual pipelines.</td><td>"en" / "hi" / "or"</td></tr>
+    <tr><td><code>word_count</code></td><td>int</td><td>Filter out tiny fragments. "Only chunks > 50 words"</td><td>142</td></tr>
+    <tr><td><code>category</code></td><td>string</td><td class="good">Domain routing. "Only search 'legal' documents"</td><td>"legal" / "finance" / "hr"</td></tr>
+    <tr><td><code>author</code></td><td>string</td><td>Attribution, filtering by author.</td><td>"Dr. Rajeeb Kumar"</td></tr>
+    <tr><td><code>url</code></td><td>string</td><td>Source URL for web content, for citations.</td><td>"https://docs.example.com/..."</td></tr>
+  </table>
+
+  <h3>Metadata filtering in LangChain — practical code</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">metadata_filtering.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+
+<span class="cm"># Assume vectorstore is already built (see ChromaDB tab)
+# ── Basic metadata filter ──────────────────────────────</span>
+results = vectorstore.similarity_search(
+    query=<span class="str">"What is the refund policy?"</span>,
+    k=<span class="num">5</span>,
+    filter={<span class="str">"data_type"</span>: <span class="str">"pdf"</span>}   <span class="cm"># only search PDF chunks</span>
+)
+
+<span class="cm"># ── Multi-field filter ─────────────────────────────────</span>
+results = vectorstore.similarity_search(
+    query=<span class="str">"machine learning techniques"</span>,
+    k=<span class="num">5</span>,
+    filter={
+        <span class="str">"data_type"</span>: <span class="str">"pdf"</span>,
+        <span class="str">"language"</span>: <span class="str">"en"</span>
+    }
+)
+
+<span class="cm"># ── Chroma: $and / $or operators ──────────────────────</span>
+results = vectorstore.similarity_search(
+    query=<span class="str">"neural network training"</span>,
+    k=<span class="num">5</span>,
+    filter={
+        <span class="str">"$and"</span>: [
+            {<span class="str">"data_type"</span>: {<span class="str">"$eq"</span>: <span class="str">"pdf"</span>}},
+            {<span class="str">"page"</span>: {<span class="str">"$gte"</span>: <span class="num">5</span>}}    <span class="cm"># only pages 5 and above</span>
+        ]
+    }
+)
+
+<span class="cm"># Chroma filter operators:
+# $eq   → equals           {"field": {"$eq": "value"}}
+# $ne   → not equals       {"field": {"$ne": "value"}}
+# $gt   → greater than     {"field": {"$gt": 5}}
+# $gte  → greater or equal {"field": {"$gte": 5}}
+# $lt   → less than        {"field": {"$lt": 100}}
+# $lte  → less or equal    {"field": {"$lte": 100}}
+# $in   → in list          {"field": {"$in": ["a","b","c"]}}
+# $nin  → not in list      {"field": {"$nin": ["x","y"]}}
+# $and  → all conditions   {"$and": [{...}, {...}]}
+# $or   → any condition    {"$or":  [{...}, {...}]}</span>
+
+<span class="cm"># ── Retrieval with score (see similarity score) ────────</span>
+results_with_score = vectorstore.similarity_search_with_score(
+    query=<span class="str">"What are embedding models?"</span>,
+    k=<span class="num">5</span>
+)
+<span class="kw">for</span> doc, score <span class="kw">in</span> results_with_score:
+    <span class="fn">print</span>(<span class="str">f"Score: {score:.4f} | Source: {doc.metadata['source']}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Text: {doc.page_content[:100]}\n"</span>)
+
+<span class="cm"># ── Filter by source file (powerful for multi-doc RAG) ─</span>
+<span class="kw">def</span> <span class="fn">search_in_file</span>(vectorstore, query: <span class="fn">str</span>, filename: <span class="fn">str</span>, k=<span class="num">5</span>):
+    <span class="kw">return</span> vectorstore.similarity_search(
+        query, k=k,
+        filter={<span class="str">"source"</span>: {<span class="str">"$eq"</span>: filename}}
+    )
+
+results = <span class="fn">search_in_file</span>(vectorstore, <span class="str">"refund rules"</span>, <span class="str">"docs/policy.pdf"</span>)</pre>
+  </div>
+
+  <div class="callout callout-green">
+    <strong>Enriching metadata during ingestion (Stage 1):</strong> Always add useful metadata at the ingestion stage — date, language, category, word_count. You cannot easily add metadata after embedding. Plan your metadata schema before you build the index.
+  </div>
+</div>
+
+<!-- ══════ ALL DATABASES ══════ -->
+<div class="section" id="section-databases">
+  <div class="sec-title">All Vector Databases — 2025–26</div>
+  <div class="sec-subtitle">Complete overview of every major vector database — free/local, managed cloud, and SQL-based options.</div>
+
+  <div class="db-grid">
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">ChromaDB</div><div class="dbc-type">Open Source · Local / Self-Hosted</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="dbc-desc">Easiest to set up — zero config, runs embedded in Python. 4x faster since 2025 Rust rewrite. Built-in metadata + full-text search. Best for prototyping and learning. Start here.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">Local/Server</div><div class="dbc-stat">HNSW index</div><div class="dbc-stat">Python-native</div><div class="dbc-stat">Persistent</div>
+      </div>
+    </div>
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">FAISS</div><div class="dbc-type">Open Source Library — Meta AI</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="dbc-desc">Fastest raw vector search available. C++ core with Python bindings. Multiple index types (Flat, IVF, HNSW, IVFPQ). GPU support. No persistence — you save/load manually. Best for research and offline batch search.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">In-Memory</div><div class="dbc-stat">FLAT/IVF/HNSW</div><div class="dbc-stat">GPU support</div><div class="dbc-stat">No server</div>
+      </div>
+    </div>
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">Qdrant</div><div class="dbc-type">Open Source + Cloud — Rust-based</div></div><span class="tag tag-free">FREE (OSS)</span></div>
+      <div class="dbc-desc">Best-in-class metadata filtering. Built in Rust — very fast and memory efficient. Supports dense + sparse + hybrid search. Free OSS via Docker; managed cloud available. Best production choice after ChromaDB.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">Docker/Cloud</div><div class="dbc-stat">HNSW + payload filter</div><div class="dbc-stat">Hybrid search</div><div class="dbc-stat">Quantization</div>
+      </div>
+    </div>
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">pgvector</div><div class="dbc-type">PostgreSQL Extension</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="dbc-desc">Add vector search to your existing PostgreSQL database. Query vectors with SQL — JOIN with your relational data. No separate infrastructure. HNSW and IVFFlat indexes. Best if you already use Postgres.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">PostgreSQL</div><div class="dbc-stat">SQL queries</div><div class="dbc-stat">HNSW/IVFFlat</div><div class="dbc-stat">No extra infra</div>
+      </div>
+    </div>
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">Milvus</div><div class="dbc-type">Open Source · Enterprise Scale</div></div><span class="tag tag-free">FREE (OSS)</span></div>
+      <div class="dbc-desc">Handles billions of vectors. 42K GitHub stars — most popular OSS vector DB. GPU-accelerated (CAGRA algorithm). Multiple index types. Requires Docker/Kubernetes. Best for large-scale production with own infrastructure.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">Billions of vecs</div><div class="dbc-stat">GPU accel</div><div class="dbc-stat">Distributed</div><div class="dbc-stat">Complex setup</div>
+      </div>
+    </div>
+    <div class="db-card free-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">LanceDB</div><div class="dbc-type">Open Source · Serverless-friendly</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="dbc-desc">Fastest growing (9.6% mindshare increase YoY). Columnar on-disk format — very storage efficient. Great for multimodal (image + text). Integrates natively with LangChain and LlamaIndex. Good for agent memory stores.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">On-disk</div><div class="dbc-stat">Multimodal</div><div class="dbc-stat">Serverless</div><div class="dbc-stat">Lance format</div>
+      </div>
+    </div>
+    <div class="db-card paid-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">Pinecone</div><div class="dbc-type">Fully Managed Cloud</div></div><span class="tag tag-paid">From $0 (free tier)</span></div>
+      <div class="dbc-desc">Zero ops — no server, no Docker. Serverless architecture. Free tier available. Billions of vectors, automatic scaling. Best for teams that want pure managed cloud with no DevOps. Native LangChain integration.</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">Serverless</div><div class="dbc-stat">Auto-scale</div><div class="dbc-stat">Free tier</div><div class="dbc-stat">pinecone.io</div>
+      </div>
+    </div>
+    <div class="db-card paid-card">
+      <div class="dbc-hdr"><div><div class="dbc-name">Weaviate</div><div class="dbc-type">Open Source + Managed Cloud</div></div><span class="tag tag-paid">From $45/mo (cloud)</span></div>
+      <div class="dbc-desc">Best hybrid search — BM25 + dense vectors + metadata filtering in one query. Built-in vectorization modules. Self-host free or use Weaviate Cloud. 14-day free sandbox. GraphQL API (steeper learning curve).</div>
+      <div class="dbc-stats">
+        <div class="dbc-stat">Hybrid search</div><div class="dbc-stat">BM25 + vector</div><div class="dbc-stat">14-day free</div><div class="dbc-stat">GraphQL API</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Comparison Matrix</h3>
+  <table class="comp-table">
+    <tr><th>Database</th><th>Setup</th><th>Persistence</th><th>Metadata Filter</th><th>Scale</th><th>Cost</th><th>LangChain</th></tr>
+    <tr><td><code>ChromaDB</code></td><td>⚡ 1 line</td><td>✅ Local disk</td><td>✅ Rich</td><td>~10M vecs</td><td class="price-free">FREE</td><td>✅ Native</td></tr>
+    <tr><td><code>FAISS</code></td><td>⚡ 1 line</td><td>⚠️ Manual save</td><td>❌ None</td><td>Billions</td><td class="price-free">FREE</td><td>✅ Native</td></tr>
+    <tr><td><code>Qdrant</code></td><td>🐳 Docker</td><td>✅ Auto</td><td>✅ Best-in-class</td><td>Billions</td><td class="price-free">FREE (OSS)</td><td>✅ Native</td></tr>
+    <tr><td><code>pgvector</code></td><td>🐘 Postgres</td><td>✅ Postgres</td><td>✅ SQL</td><td>~100M vecs</td><td class="price-free">FREE</td><td>✅ Native</td></tr>
+    <tr><td><code>Milvus</code></td><td>🐳 Complex</td><td>✅ Auto</td><td>✅ Rich</td><td>Billions+</td><td class="price-free">FREE (OSS)</td><td>✅ Native</td></tr>
+    <tr><td><code>LanceDB</code></td><td>⚡ 1 line</td><td>✅ Disk</td><td>✅ SQL-like</td><td>~1B vecs</td><td class="price-free">FREE</td><td>✅ Native</td></tr>
+    <tr><td><code>Pinecone</code></td><td>☁️ API key</td><td>✅ Cloud</td><td>✅ Rich</td><td>Billions</td><td class="price-paid">Free tier → $$$</td><td>✅ Native</td></tr>
+    <tr><td><code>Weaviate</code></td><td>🐳/☁️</td><td>✅ Auto</td><td>✅ + BM25</td><td>Billions</td><td class="price-paid">$45/mo cloud</td><td>✅ Native</td></tr>
+  </table>
+</div>
+
+<!-- ══════ HOW TO CHOOSE ══════ -->
+<div class="section" id="section-choose">
+  <div class="sec-title">How to Choose the Right Vector Database</div>
+  <div class="sec-subtitle">Decision tree covering 95% of real-world RAG use cases.</div>
+
+  <div class="dtree">
+    <div class="dtree-q">❓ What stage are you at and what are your constraints?</div>
+    <div class="dtree-row"><div class="dtree-cond">Learning / prototype</div><div class="dtree-result">→ <strong>ChromaDB</strong>. Zero setup, works in 3 lines of Python. Perfect for mastering the concepts.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Need maximum speed</div><div class="dtree-result">→ <strong>FAISS</strong>. Fastest pure vector search. Good for offline/batch workloads where you manage persistence yourself.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Complex metadata filtering</div><div class="dtree-result">→ <strong>Qdrant</strong>. Best-in-class payload filtering — filter by any metadata field with complex conditions.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Already using PostgreSQL</div><div class="dtree-result">→ <strong>pgvector</strong>. Add vector search to your existing Postgres with one extension. SQL JOINs work.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">No ops / cloud managed</div><div class="dtree-result">→ <strong>Pinecone</strong>. Serverless, zero infrastructure. Has a generous free tier. Easiest cloud option.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Hybrid search (keyword + semantic)</div><div class="dtree-result">→ <strong>Weaviate</strong>. Combines BM25 keyword search with dense vector search in one query — no extra tooling needed.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Billions of vectors, own infra</div><div class="dtree-result">→ <strong>Milvus</strong>. Most scalable OSS option. GPU acceleration available. Needs Kubernetes/Docker setup.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Multimodal (images + text)</div><div class="dtree-result">→ <strong>LanceDB</strong>. Columnar format handles mixed-modality data efficiently. Fast growing community.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Your virtual desktop (right now)</div><div class="dtree-result">→ Start with <strong>ChromaDB</strong> (persistent, no Docker needed). Graduate to <strong>Qdrant via Docker</strong> for production-like features.</div></div>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>Recommended learning path:</strong> ChromaDB (week 1) → FAISS (week 2, understand indexes) → Qdrant (week 3, understand metadata filtering) → Pinecone (week 4, understand managed cloud). By week 4, you'll understand the full spectrum of tradeoffs.
+  </div>
+</div>
+
+<!-- ══════ CHROMADB ══════ -->
+<div class="section" id="section-chroma">
+  <div class="sec-title">ChromaDB — Complete Guide <span class="tag tag-free">FREE · LOCAL</span></div>
+  <div class="sec-subtitle">The easiest vector database to set up. Zero configuration. Runs embedded in Python. Persistent to disk. Perfect for learning and small-to-medium production.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install langchain-chroma chromadb</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">chroma_complete.py — everything you need to know about ChromaDB</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># ── 1. Load embedding model ──────────────────────────</span>
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(
+    model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>,
+    model_kwargs={<span class="str">"device"</span>: <span class="str">"cpu"</span>},
+    encode_kwargs={<span class="str">"normalize_embeddings"</span>: <span class="dec">True</span>}
+)
+
+<span class="cm"># ── 2a. CREATE a new vector store from chunks ─────────</span>
+<span class="cm"># stage2_chunks = list[Document] from your chunking stage</span>
+vectorstore = <span class="cls">Chroma</span>.from_documents(
+    documents=stage2_chunks,
+    embedding=embeddings,
+    persist_directory=<span class="str">"./chroma_db"</span>,  <span class="cm"># save to disk</span>
+    collection_name=<span class="str">"my_rag_docs"</span>
+)
+<span class="fn">print</span>(<span class="str">f"Stored {vectorstore._collection.count()} vectors"</span>)
+
+<span class="cm"># ── 2b. LOAD existing vector store from disk ──────────</span>
+vectorstore = <span class="cls">Chroma</span>(
+    persist_directory=<span class="str">"./chroma_db"</span>,
+    embedding_function=embeddings,
+    collection_name=<span class="str">"my_rag_docs"</span>
+)
+<span class="fn">print</span>(<span class="str">f"Loaded {vectorstore._collection.count()} existing vectors"</span>)
+
+<span class="cm"># ── 3. Similarity search ──────────────────────────────</span>
+query = <span class="str">"What is retrieval augmented generation?"</span>
+results = vectorstore.similarity_search(query, k=<span class="num">5</span>)
+<span class="kw">for</span> i, doc <span class="kw">in</span> <span class="fn">enumerate</span>(results):
+    <span class="fn">print</span>(<span class="str">f"\n[{i+1}] Source: {doc.metadata.get('source', 'unknown')}"</span>)
+    <span class="fn">print</span>(<span class="str">f"      Text  : {doc.page_content[:150]}"</span>)
+
+<span class="cm"># ── 4. Search with similarity scores ─────────────────</span>
+results_scored = vectorstore.similarity_search_with_score(query, k=<span class="num">5</span>)
+<span class="kw">for</span> doc, score <span class="kw">in</span> results_scored:
+    <span class="fn">print</span>(<span class="str">f"Score: {score:.4f} | {doc.page_content[:80]}"</span>)
+<span class="cm"># Note: Chroma returns L2 distance — LOWER score = MORE similar</span>
+
+<span class="cm"># ── 5. Metadata filter ────────────────────────────────</span>
+results = vectorstore.similarity_search(
+    query, k=<span class="num">5</span>,
+    filter={<span class="str">"$and"</span>: [
+        {<span class="str">"data_type"</span>: {<span class="str">"$eq"</span>: <span class="str">"pdf"</span>}},
+        {<span class="str">"language"</span>: {<span class="str">"$eq"</span>: <span class="str">"en"</span>}}
+    ]}
+)
+
+<span class="cm"># ── 6. Add more documents later ───────────────────────</span>
+new_chunks = [<span class="cls">Document</span>(
+    page_content=<span class="str">"New content about RAG pipelines"</span>,
+    metadata={<span class="str">"source"</span>: <span class="str">"new_doc.pdf"</span>, <span class="str">"data_type"</span>: <span class="str">"pdf"</span>}
+)]
+vectorstore.add_documents(new_chunks)
+
+<span class="cm"># ── 7. Delete documents ───────────────────────────────</span>
+<span class="cm"># Get IDs first, then delete</span>
+collection = vectorstore._collection
+results = collection.get(where={<span class="str">"source"</span>: <span class="str">"old_doc.pdf"</span>})
+<span class="kw">if</span> results[<span class="str">"ids"</span>]:
+    collection.delete(ids=results[<span class="str">"ids"</span>])
+    <span class="fn">print</span>(<span class="str">f"Deleted {len(results['ids'])} chunks from old_doc.pdf"</span>)
+
+<span class="cm"># ── 8. As a LangChain retriever (for chain integration) ─</span>
+retriever = vectorstore.as_retriever(
+    search_type=<span class="str">"similarity"</span>,
+    search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>}
+)
+<span class="cm"># retriever is passed directly to your LLM chain in Stage 5</span>
+
+<span class="cm"># ── 9. MMR retrieval (Maximum Marginal Relevance) ─────
+# Retrieves diverse results — avoids returning 5 near-identical chunks</span>
+retriever_mmr = vectorstore.as_retriever(
+    search_type=<span class="str">"mmr"</span>,
+    search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>, <span class="str">"fetch_k"</span>: <span class="num">20</span>, <span class="str">"lambda_mult"</span>: <span class="num">0.5</span>}
+)</pre>
+  </div>
+</div>
+
+<!-- ══════ FAISS ══════ -->
+<div class="section" id="section-faiss">
+  <div class="sec-title">FAISS — Complete Guide <span class="tag tag-free">FREE · FASTEST</span></div>
+  <div class="sec-subtitle">Meta's FAISS library — the fastest raw vector search available. Multiple index types. Works entirely in-memory. Manual persistence. Essential for understanding how vector search fundamentally works.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install faiss-cpu langchain-community
+<span class="cm"># For GPU: pip install faiss-gpu</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">faiss_complete.py — all FAISS index types and operations</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_community.vectorstores</span> <span class="kw">import</span> <span class="cls">FAISS</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+<span class="kw">import</span> <span class="imp">faiss</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+<span class="cm"># ── Method 1: LangChain FAISS wrapper (easiest) ────────</span>
+vectorstore = <span class="cls">FAISS</span>.from_documents(stage2_chunks, embeddings)
+
+<span class="cm"># Search</span>
+results = vectorstore.similarity_search(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+results_with_scores = vectorstore.similarity_search_with_score(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+<span class="cm"># FAISS returns L2 distance — lower = more similar (opposite of cosine!)</span>
+
+<span class="cm"># Save and load (FAISS has NO auto-persistence)</span>
+vectorstore.save_local(<span class="str">"./faiss_index"</span>)
+vectorstore = <span class="cls">FAISS</span>.load_local(
+    <span class="str">"./faiss_index"</span>, embeddings,
+    allow_dangerous_deserialization=<span class="dec">True</span>
+)
+
+<span class="cm"># Merge two FAISS indexes (useful for incremental indexing)</span>
+vectorstore2 = <span class="cls">FAISS</span>.from_documents(new_chunks, embeddings)
+vectorstore.merge_from(vectorstore2)
+
+<span class="cm"># ── Method 2: Raw FAISS for custom index types ─────────</span>
+<span class="cm"># Embed all chunks first</span>
+texts = [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+vecs = np.array(embeddings.embed_documents(texts), dtype=np.float32)
+dim = vecs.shape[<span class="num">1</span>]   <span class="cm"># e.g. 384</span>
+
+<span class="cm"># Index Type A: Flat L2 (exact search, 100% recall, slow at scale)</span>
+index_flat = faiss.IndexFlatL2(dim)
+index_flat.add(vecs)
+
+<span class="cm"># Index Type B: Flat IP (inner product / cosine for normalized vecs)</span>
+faiss.normalize_L2(vecs)    <span class="cm"># normalize for cosine similarity</span>
+index_ip = faiss.IndexFlatIP(dim)
+index_ip.add(vecs)
+
+<span class="cm"># Index Type C: IVFFlat (fast approximate, good for 100K+ vectors)</span>
+nlist = <span class="num">100</span>  <span class="cm"># number of clusters (rule of thumb: sqrt(N))</span>
+quantizer = faiss.IndexFlatL2(dim)
+index_ivf = faiss.IndexIVFFlat(quantizer, dim, nlist)
+index_ivf.train(vecs)       <span class="cm"># must train before adding</span>
+index_ivf.add(vecs)
+index_ivf.nprobe = <span class="num">10</span>       <span class="cm"># search 10 clusters (higher = better recall, slower)</span>
+
+<span class="cm"># Index Type D: HNSW (best balance speed/recall, no training needed)</span>
+index_hnsw = faiss.IndexHNSWFlat(dim, <span class="num">32</span>)  <span class="cm"># M=32 connections per node</span>
+index_hnsw.hnsw.efConstruction = <span class="num">200</span>
+index_hnsw.add(vecs)
+
+<span class="cm"># Search any raw index</span>
+query_vec = np.array([embeddings.embed_query(<span class="str">"What is RAG?"</span>)], dtype=np.float32)
+faiss.normalize_L2(query_vec)
+distances, indices = index_ip.search(query_vec, k=<span class="num">5</span>)
+<span class="kw">for</span> i, (idx, dist) <span class="kw">in</span> <span class="fn">enumerate</span>(<span class="fn">zip</span>(indices[<span class="num">0</span>], distances[<span class="num">0</span>])):
+    <span class="fn">print</span>(<span class="str">f"[{i+1}] idx={idx} | score={dist:.4f} | {stage2_chunks[idx].page_content[:80]}"</span>)</pre>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>FAISS index selection guide:</strong> &lt;100K vectors → IndexFlatIP (exact, no training). 100K–1M vectors → IndexIVFFlat (fast ANN). 1M+ vectors → IndexIVFPQ (compressed, minimal RAM). Any size wanting easy setup → IndexHNSWFlat (no training, excellent recall).
+  </div>
+</div>
+
+<!-- ══════ QDRANT ══════ -->
+<div class="section" id="section-qdrant">
+  <div class="sec-title">Qdrant — Complete Guide <span class="tag tag-free">FREE (OSS)</span> <span class="tag tag-paid">Cloud available</span></div>
+  <div class="sec-subtitle">Best-in-class metadata filtering. Rust-based — fast and memory efficient. Best for production RAG with complex filtering needs. Run via Docker locally or use Qdrant Cloud.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal — setup</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install langchain-qdrant qdrant-client
+
+<span class="cm"># Run Qdrant locally via Docker</span>
+docker pull qdrant/qdrant
+docker run -p 6333:6333 -v ./qdrant_storage:/qdrant/storage qdrant/qdrant
+<span class="cm"># Now Qdrant is running at http://localhost:6333</span>
+<span class="cm"># Dashboard: http://localhost:6333/dashboard</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">qdrant_complete.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_qdrant</span> <span class="kw">import</span> <span class="cls">QdrantVectorStore</span>
+<span class="kw">from</span> <span class="imp">qdrant_client</span> <span class="kw">import</span> <span class="cls">QdrantClient</span>
+<span class="kw">from</span> <span class="imp">qdrant_client.models</span> <span class="kw">import</span> <span class="cls">Distance</span>, <span class="cls">VectorParams</span>, <span class="cls">Filter</span>, <span class="cls">FieldCondition</span>, <span class="cls">MatchValue</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+<span class="cm"># ── Connect to local Qdrant ───────────────────────────</span>
+client = <span class="cls">QdrantClient</span>(url=<span class="str">"http://localhost:6333"</span>)
+
+<span class="cm"># ── Connect to Qdrant Cloud ───────────────────────────</span>
+<span class="cm"># client = QdrantClient(
+#     url="https://YOUR-CLUSTER.qdrant.tech",
+#     api_key="your-api-key"
+# )</span>
+
+<span class="cm"># ── In-memory (for testing, no Docker needed) ─────────</span>
+<span class="cm"># client = QdrantClient(":memory:")</span>
+
+<span class="cm"># ── Create vector store ───────────────────────────────</span>
+vectorstore = <span class="cls">QdrantVectorStore</span>.from_documents(
+    documents=stage2_chunks,
+    embedding=embeddings,
+    url=<span class="str">"http://localhost:6333"</span>,
+    collection_name=<span class="str">"rag_documents"</span>,
+    distance=<span class="cls">Distance</span>.COSINE     <span class="cm"># or Distance.EUCLID, Distance.DOT</span>
+)
+
+<span class="cm"># ── Load existing collection ──────────────────────────</span>
+vectorstore = <span class="cls">QdrantVectorStore</span>(
+    client=client,
+    collection_name=<span class="str">"rag_documents"</span>,
+    embedding=embeddings
+)
+
+<span class="cm"># ── Basic similarity search ───────────────────────────</span>
+results = vectorstore.similarity_search(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+
+<span class="cm"># ── QDRANT PAYLOAD FILTERING (best-in-class) ──────────</span>
+<span class="kw">from</span> <span class="imp">qdrant_client.models</span> <span class="kw">import</span> (
+    <span class="cls">Filter</span>, <span class="cls">Must</span>, <span class="cls">Should</span>, <span class="cls">FieldCondition</span>,
+    <span class="cls">MatchValue</span>, <span class="cls">Range</span>
+)
+
+<span class="cm"># Filter: must be PDF AND page >= 3</span>
+qdrant_filter = <span class="cls">Filter</span>(
+    must=[
+        <span class="cls">FieldCondition</span>(key=<span class="str">"metadata.data_type"</span>, match=<span class="cls">MatchValue</span>(value=<span class="str">"pdf"</span>)),
+        <span class="cls">FieldCondition</span>(key=<span class="str">"metadata.page"</span>, range=<span class="cls">Range</span>(<span class="fn">gte</span>=<span class="num">3</span>))
+    ]
+)
+results = vectorstore.similarity_search(
+    <span class="str">"machine learning"</span>, k=<span class="num">5</span>,
+    filter=qdrant_filter
+)
+
+<span class="cm"># Filter: should be PDF OR markdown</span>
+qdrant_filter2 = <span class="cls">Filter</span>(
+    should=[
+        <span class="cls">FieldCondition</span>(key=<span class="str">"metadata.data_type"</span>, match=<span class="cls">MatchValue</span>(value=<span class="str">"pdf"</span>)),
+        <span class="cls">FieldCondition</span>(key=<span class="str">"metadata.data_type"</span>, match=<span class="cls">MatchValue</span>(value=<span class="str">"markdown"</span>))
+    ]
+)
+
+<span class="cm"># Collection info / stats</span>
+info = client.get_collection(<span class="str">"rag_documents"</span>)
+<span class="fn">print</span>(<span class="str">f"Vectors in collection: {info.vectors_count}"</span>)
+<span class="fn">print</span>(<span class="str">f"Index status: {info.status}"</span>)
+
+<span class="cm"># As retriever</span>
+retriever = vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})</pre>
+  </div>
+</div>
+
+<!-- ══════ PINECONE ══════ -->
+<div class="section" id="section-pinecone">
+  <div class="sec-title">Pinecone — Complete Guide <span class="tag tag-paid">FREE TIER + PAID</span></div>
+  <div class="sec-subtitle">Fully managed, serverless vector database. Zero infrastructure. Free tier available. Best cloud option for teams that want no DevOps overhead.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal + account setup</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install langchain-pinecone pinecone-client
+
+<span class="cm"># 1. Sign up at: pinecone.io (free tier available)
+# 2. Create an index in the dashboard OR via code
+# 3. Copy your API key from dashboard
+# 4. Add to .env: PINECONE_API_KEY=your-key-here</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">pinecone_complete.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_pinecone</span> <span class="kw">import</span> <span class="cls">PineconeVectorStore</span>
+<span class="kw">from</span> <span class="imp">pinecone</span> <span class="kw">import</span> <span class="cls">Pinecone</span>, <span class="cls">ServerlessSpec</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> <span class="imp">os</span>
+load_dotenv()
+
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+<span class="cm"># ── 1. Initialize Pinecone client ─────────────────────</span>
+pc = <span class="cls">Pinecone</span>(api_key=os.getenv(<span class="str">"PINECONE_API_KEY"</span>))
+
+<span class="cm"># ── 2. Create index (do once) ─────────────────────────</span>
+index_name = <span class="str">"rag-index"</span>
+<span class="kw">if</span> index_name <span class="kw">not in</span> [i.name <span class="kw">for</span> i <span class="kw">in</span> pc.list_indexes()]:
+    pc.create_index(
+        name=index_name,
+        dimension=<span class="num">384</span>,          <span class="cm"># MUST match your embedding model's dim</span>
+        metric=<span class="str">"cosine"</span>,        <span class="cm"># or "euclidean", "dotproduct"</span>
+        spec=<span class="cls">ServerlessSpec</span>(
+            cloud=<span class="str">"aws"</span>,        <span class="cm"># or "gcp", "azure"</span>
+            region=<span class="str">"us-east-1"</span>
+        )
+    )
+    <span class="fn">print</span>(<span class="str">f"Index '{index_name}' created"</span>)
+
+<span class="cm"># ── 3. Create vector store + upsert chunks ────────────</span>
+vectorstore = <span class="cls">PineconeVectorStore</span>.from_documents(
+    documents=stage2_chunks,
+    embedding=embeddings,
+    index_name=index_name
+)
+
+<span class="cm"># ── 4. Load existing index ────────────────────────────</span>
+vectorstore = <span class="cls">PineconeVectorStore</span>.from_existing_index(
+    index_name=index_name,
+    embedding=embeddings
+)
+
+<span class="cm"># ── 5. Similarity search ──────────────────────────────</span>
+results = vectorstore.similarity_search(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+
+<span class="cm"># ── 6. Metadata filter ────────────────────────────────</span>
+results = vectorstore.similarity_search(
+    <span class="str">"machine learning"</span>, k=<span class="num">5</span>,
+    filter={<span class="str">"data_type"</span>: {<span class="str">"$eq"</span>: <span class="str">"pdf"</span>}}
+)
+
+<span class="cm"># ── 7. Index stats ────────────────────────────────────</span>
+index = pc.Index(index_name)
+stats = index.describe_index_stats()
+<span class="fn">print</span>(<span class="str">f"Total vectors: {stats['total_vector_count']}"</span>)
+<span class="fn">print</span>(<span class="str">f"Dimension: {stats['dimension']}"</span>)
+
+<span class="cm"># ── 8. As retriever ───────────────────────────────────</span>
+retriever = vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})</pre>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>Critical:</strong> The <code>dimension</code> when creating a Pinecone index MUST exactly match your embedding model's output dimensions. bge-small-en-v1.5 = 384. all-MiniLM-L6-v2 = 384. bge-large = 1024. OpenAI 3-small = 1536. Mismatch → error. You cannot change dimension after creation — you'd need to delete and recreate the index.
+  </div>
+</div>
+
+<!-- ══════ OTHERS ══════ -->
+<div class="section" id="section-others">
+  <div class="sec-title">Weaviate &amp; pgvector <span class="tag tag-pink">HYBRID SEARCH · SQL</span></div>
+  <div class="sec-subtitle">Weaviate for best-in-class hybrid search (BM25 + dense). pgvector for SQL-native vector search in your existing PostgreSQL database.</div>
+
+  <h3>Weaviate — BM25 + Dense Hybrid Search</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install langchain-weaviate weaviate-client
+<span class="cm"># Local via Docker: docker run -p 8080:8080 semitechnologies/weaviate:latest
+# Or sign up at: weaviate.io (14-day free sandbox, no credit card)</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">weaviate_complete.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">import</span> <span class="imp">weaviate</span>
+<span class="kw">from</span> <span class="imp">langchain_weaviate</span> <span class="kw">import</span> <span class="cls">WeaviateVectorStore</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+<span class="cm"># ── Connect to local Weaviate ─────────────────────────</span>
+client = weaviate.connect_to_local()
+
+<span class="cm"># ── Connect to Weaviate Cloud ─────────────────────────</span>
+<span class="cm"># client = weaviate.connect_to_weaviate_cloud(
+#     cluster_url="https://your-cluster.weaviate.network",
+#     auth_credentials=weaviate.auth.AuthApiKey("your-api-key")
+# )</span>
+
+<span class="cm"># ── Create vector store ───────────────────────────────</span>
+vectorstore = <span class="cls">WeaviateVectorStore</span>.from_documents(
+    documents=stage2_chunks,
+    embedding=embeddings,
+    client=client,
+    index_name=<span class="str">"RagDocument"</span>   <span class="cm"># Weaviate class name (PascalCase)</span>
+)
+
+<span class="cm"># ── Dense vector search ───────────────────────────────</span>
+results = vectorstore.similarity_search(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+
+<span class="cm"># ── Hybrid search (BM25 + dense) ─────────────────────
+# This is Weaviate's superpower — keyword + semantic in one query</span>
+results = vectorstore.similarity_search(
+    <span class="str">"RAG pipeline embedding"</span>, k=<span class="num">5</span>,
+    search_type=<span class="str">"hybrid"</span>,
+    alpha=<span class="num">0.5</span>   <span class="cm"># 0 = pure BM25, 1 = pure dense, 0.5 = balanced</span>
+)
+client.close()</pre>
+  </div>
+
+  <h3>pgvector — Vector Search in PostgreSQL</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>pip install langchain-postgres psycopg2-binary pgvector
+<span class="cm"># PostgreSQL with pgvector via Docker:
+# docker run -e POSTGRES_PASSWORD=password -p 5432:5432 pgvector/pgvector:pg16</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">pgvector_complete.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_postgres</span> <span class="kw">import</span> <span class="cls">PGVector</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+CONNECTION_STRING = <span class="str">"postgresql+psycopg://postgres:password@localhost:5432/ragdb"</span>
+
+<span class="cm"># ── Create vector store (auto-creates table) ──────────</span>
+vectorstore = <span class="cls">PGVector</span>.from_documents(
+    documents=stage2_chunks,
+    embedding=embeddings,
+    connection=CONNECTION_STRING,
+    collection_name=<span class="str">"rag_documents"</span>,
+    use_jsonb=<span class="dec">True</span>   <span class="cm"># store metadata as JSONB (enables rich filtering)</span>
+)
+
+<span class="cm"># ── Load existing ─────────────────────────────────────</span>
+vectorstore = <span class="cls">PGVector</span>(
+    embeddings=embeddings,
+    collection_name=<span class="str">"rag_documents"</span>,
+    connection=CONNECTION_STRING,
+)
+
+<span class="cm"># ── Search ────────────────────────────────────────────</span>
+results = vectorstore.similarity_search(<span class="str">"What is RAG?"</span>, k=<span class="num">5</span>)
+
+<span class="cm"># ── Raw SQL query (pgvector's superpower) ─────────────</span>
+<span class="cm"># You can JOIN vector search results with your relational tables!</span>
+<span class="cm"># SELECT * FROM rag_documents
+#   ORDER BY embedding <=> $1  -- cosine distance operator
+#   LIMIT 5;
+#
+# <=> = cosine distance
+# <->  = L2/Euclidean distance
+# <#>  = negative inner product</span></pre>
+  </div>
+</div>
+
+<!-- ══════ FULL PIPELINE ══════ -->
+<div class="section" id="section-pipeline">
+  <div class="sec-title">Complete Stage 4 Pipeline <span class="tag tag-blue">END-TO-END</span></div>
+  <div class="sec-subtitle">One script — takes Stage 3 embedding model + Stage 2 chunks → builds the vector store → exposes a retriever ready for Stage 5 (LLM generation).</div>
+
+  <div class="callout callout-green">
+    <strong>This is your practice file.</strong> Set <code>VECTOR_STORE</code> to switch between ChromaDB, FAISS, or Qdrant. Run it after Stage 3. When you can run a similarity search and see relevant chunks returned, Stage 4 is complete.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">stage4_vectorstore_pipeline.py — COMPLETE, production-ready</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="str">"""
+RAG Pipeline — Stage 4: Vector Store
+Input : embed_model (from Stage 3) + stage2_chunks (from Stage 2)
+Output: retriever object — ready for Stage 5 (LLM chain)
+
+VECTOR_STORE options:
+  "chroma"   → ChromaDB local (recommended for learning)
+  "faiss"    → FAISS in-memory + disk save
+  "qdrant"   → Qdrant (Docker required)
+  "pinecone" → Pinecone cloud (API key required)
+"""</span>
+
+<span class="kw">import</span> <span class="imp">os</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+load_dotenv()
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# CONFIGURATION — change to switch vector store
+# ─────────────────────────────────────────────────────</span>
+VECTOR_STORE    = <span class="str">"chroma"</span>           <span class="cm"># "chroma" | "faiss" | "qdrant" | "pinecone"</span>
+PERSIST_DIR     = <span class="str">"./vectorstore"</span>    <span class="cm"># where to save on disk</span>
+COLLECTION_NAME = <span class="str">"rag_documents"</span>    <span class="cm"># collection / index name</span>
+TOP_K           = <span class="num">5</span>                   <span class="cm"># number of chunks to retrieve per query</span>
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# VECTOR STORE FACTORY
+# ─────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">build_vectorstore</span>(chunks, embed_model, store=VECTOR_STORE):
+    <span class="fn">print</span>(<span class="str">f"\nBuilding {store} vector store with {len(chunks)} chunks..."</span>)
+
+    <span class="kw">if</span> store == <span class="str">"chroma"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+        vs = <span class="cls">Chroma</span>.from_documents(
+            documents=chunks, embedding=embed_model,
+            persist_directory=PERSIST_DIR,
+            collection_name=COLLECTION_NAME
+        )
+        <span class="fn">print</span>(<span class="str">f"✅ ChromaDB: {vs._collection.count()} vectors at {PERSIST_DIR}"</span>)
+        <span class="kw">return</span> vs
+
+    <span class="kw">elif</span> store == <span class="str">"faiss"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_community.vectorstores</span> <span class="kw">import</span> <span class="cls">FAISS</span>
+        vs = <span class="cls">FAISS</span>.from_documents(chunks, embed_model)
+        vs.save_local(PERSIST_DIR)
+        <span class="fn">print</span>(<span class="str">f"✅ FAISS: {vs.index.ntotal} vectors saved to {PERSIST_DIR}"</span>)
+        <span class="kw">return</span> vs
+
+    <span class="kw">elif</span> store == <span class="str">"qdrant"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_qdrant</span> <span class="kw">import</span> <span class="cls">QdrantVectorStore</span>
+        vs = <span class="cls">QdrantVectorStore</span>.from_documents(
+            documents=chunks, embedding=embed_model,
+            url=<span class="str">"http://localhost:6333"</span>,
+            collection_name=COLLECTION_NAME
+        )
+        <span class="fn">print</span>(<span class="str">f"✅ Qdrant: collection '{COLLECTION_NAME}' ready"</span>)
+        <span class="kw">return</span> vs
+
+    <span class="kw">elif</span> store == <span class="str">"pinecone"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_pinecone</span> <span class="kw">import</span> <span class="cls">PineconeVectorStore</span>
+        vs = <span class="cls">PineconeVectorStore</span>.from_documents(
+            documents=chunks, embedding=embed_model,
+            index_name=COLLECTION_NAME
+        )
+        <span class="fn">print</span>(<span class="str">f"✅ Pinecone: index '{COLLECTION_NAME}' populated"</span>)
+        <span class="kw">return</span> vs
+
+    <span class="kw">else</span>:
+        <span class="kw">raise</span> <span class="cls">ValueError</span>(<span class="str">f"Unknown vector store: {store}"</span>)
+
+
+<span class="kw">def</span> <span class="fn">load_vectorstore</span>(embed_model, store=VECTOR_STORE):
+    <span class="str">"""Load existing vector store from disk/cloud without re-embedding."""</span>
+    <span class="fn">print</span>(<span class="str">f"Loading existing {store} vector store..."</span>)
+
+    <span class="kw">if</span> store == <span class="str">"chroma"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+        <span class="kw">return</span> <span class="cls">Chroma</span>(persist_directory=PERSIST_DIR,
+                       embedding_function=embed_model,
+                       collection_name=COLLECTION_NAME)
+
+    <span class="kw">elif</span> store == <span class="str">"faiss"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_community.vectorstores</span> <span class="kw">import</span> <span class="cls">FAISS</span>
+        <span class="kw">return</span> <span class="cls">FAISS</span>.load_local(PERSIST_DIR, embed_model,
+                                  allow_dangerous_deserialization=<span class="dec">True</span>)
+
+    <span class="kw">elif</span> store == <span class="str">"qdrant"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_qdrant</span> <span class="kw">import</span> <span class="cls">QdrantVectorStore</span>
+        <span class="kw">from</span> <span class="imp">qdrant_client</span> <span class="kw">import</span> <span class="cls">QdrantClient</span>
+        client = <span class="cls">QdrantClient</span>(url=<span class="str">"http://localhost:6333"</span>)
+        <span class="kw">return</span> <span class="cls">QdrantVectorStore</span>(client=client,
+                                    collection_name=COLLECTION_NAME,
+                                    embedding=embed_model)
+    <span class="kw">elif</span> store == <span class="str">"pinecone"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_pinecone</span> <span class="kw">import</span> <span class="cls">PineconeVectorStore</span>
+        <span class="kw">return</span> <span class="cls">PineconeVectorStore</span>.from_existing_index(
+            index_name=COLLECTION_NAME, embedding=embed_model
+        )
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">run_vectorstore</span>(stage2_chunks, embed_model, rebuild=<span class="dec">False</span>):
+    <span class="str">"""
+    Main Stage 4 entry point.
+    rebuild=True  → rebuild the index from scratch (re-embeds everything)
+    rebuild=False → load existing index (fast startup, no re-embedding)
+    """</span>
+    <span class="fn">print</span>(<span class="str">f"\n{'='*54}"</span>)
+    <span class="fn">print</span>(<span class="str">f" RAG Stage 4 — Vector Store ({VECTOR_STORE})"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*54}"</span>)
+
+    <span class="kw">if</span> rebuild:
+        vectorstore = <span class="fn">build_vectorstore</span>(stage2_chunks, embed_model)
+    <span class="kw">else</span>:
+        <span class="kw">try</span>:
+            vectorstore = <span class="fn">load_vectorstore</span>(embed_model)
+            <span class="fn">print</span>(<span class="str">"✅ Loaded existing vector store"</span>)
+        <span class="kw">except</span>:
+            <span class="fn">print</span>(<span class="str">"No existing store found — building from scratch"</span>)
+            vectorstore = <span class="fn">build_vectorstore</span>(stage2_chunks, embed_model)
+
+    <span class="cm"># Test retrieval</span>
+    test_query = <span class="str">"What is the main topic of these documents?"</span>
+    results = vectorstore.similarity_search(test_query, k=<span class="num">3</span>)
+    <span class="fn">print</span>(<span class="str">f"\nTest query: '{test_query}'"</span>)
+    <span class="fn">print</span>(<span class="str">f"Top 3 results:"</span>)
+    <span class="kw">for</span> i, doc <span class="kw">in</span> <span class="fn">enumerate</span>(results):
+        <span class="fn">print</span>(<span class="str">f"  [{i+1}] {doc.metadata.get('source','?')} | {doc.page_content[:80]}"</span>)
+
+    <span class="cm"># Build retriever for Stage 5</span>
+    retriever = vectorstore.as_retriever(
+        search_type=<span class="str">"mmr"</span>,        <span class="cm"># mmr = diverse results, not just top-similar</span>
+        search_kwargs={<span class="str">"k"</span>: TOP_K, <span class="str">"fetch_k"</span>: TOP_K * <span class="num">3</span>}
+    )
+
+    <span class="fn">print</span>(<span class="str">f"\n✅ Retriever ready — passes to Stage 5 (LLM chain)"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*54}\n"</span>)
+
+    <span class="kw">return</span> vectorstore, retriever
+
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="kw">from</span> <span class="imp">stage1_ingestion_pipeline</span> <span class="kw">import</span> run_ingestion
+    <span class="kw">from</span> <span class="imp">stage2_chunking_pipeline</span> <span class="kw">import</span> run_chunking
+    <span class="kw">from</span> <span class="imp">stage3_embedding_pipeline</span> <span class="kw">import</span> run_embedding
+
+    stage1_docs    = <span class="fn">run_ingestion</span>(<span class="str">"./data"</span>)
+    stage2_chunks  = <span class="fn">run_chunking</span>(stage1_docs)
+    embed_model, _ = <span class="fn">run_embedding</span>(stage2_chunks)
+    vectorstore, retriever = <span class="fn">run_vectorstore</span>(stage2_chunks, embed_model, rebuild=<span class="dec">True</span>)
+
+    <span class="cm"># Test with a real question</span>
+    <span class="fn">print</span>(<span class="str">"\n--- Interactive retrieval test ---"</span>)
+    query = <span class="fn">input</span>(<span class="str">"Ask a question about your documents: "</span>)
+    results = vectorstore.similarity_search_with_score(query, k=<span class="num">5</span>)
+    <span class="fn">print</span>(<span class="str">f"\nTop {len(results)} chunks:"</span>)
+    <span class="kw">for</span> doc, score <span class="kw">in</span> results:
+        <span class="fn">print</span>(<span class="str">f"  Score: {score:.4f} | Source: {doc.metadata.get('source','?')}"</span>)
+        <span class="fn">print</span>(<span class="str">f"  Text : {doc.page_content[:150]}\n"</span>)</pre>
+  </div>
+
+  <div class="summary">
+    <h4>Stage 4 output → Stage 5 input</h4>
+    <div class="summary-row"><span class="lbl">vectorstore</span><span class="val">LangChain VectorStore object</span></div>
+    <div class="summary-row"><span class="lbl">retriever</span><span class="val">vectorstore.as_retriever()</span></div>
+    <div class="summary-row"><span class="lbl">retriever.invoke(query)</span><span class="val">returns list[Document]</span></div>
+    <div class="summary-row"><span class="lbl">search_type</span><span class="val">similarity | mmr | similarity_score_threshold</span></div>
+    <div class="summary-row"><span class="lbl">Next stage</span><span class="val">Stage 5 — LLM Chain + Prompt Engineering</span></div>
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:24px">
+    <strong>Practice order:</strong> Day 1 — build ChromaDB, run a search, inspect the chunks returned. Day 2 — add rich metadata to your chunks and test metadata filtering. Day 3 — build FAISS, compare retrieval speed. Day 4 — spin up Qdrant in Docker, test payload filtering. By Day 4, you fully understand the internal architecture and have hands-on experience with three different databases.
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<script>
+const TABS=['concept','arch','metadata','databases','choose','chroma','faiss','qdrant','pinecone','others','pipeline'];
+
+function showTab(name){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  const idx=TABS.indexOf(name);
+  const tabs=document.querySelectorAll('.nav-tab');
+  if(tabs[idx])tabs[idx].classList.add('active');
+}
+
+function copyCode(btn){
+  const pre=btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(()=>{
+    btn.textContent='copied ✓';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},2000);
+  });
+}
+</script>
+</body>
+</html>
