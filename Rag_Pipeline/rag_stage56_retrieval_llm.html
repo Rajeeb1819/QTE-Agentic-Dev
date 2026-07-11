@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAG Stage 5 & 6 — Retrieval + LLM Masterclass</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#080d14;--surface:#0e1520;--surface2:#141e2e;--surface3:#1a2438;
+  --border:#1c2d42;--accent:#fb923c;--accent2:#34d399;--accent3:#818cf8;
+  --accent4:#f472b6;--accent5:#fbbf24;--text:#c8d8ec;--muted:#446080;
+  --code-bg:#050b12;--white:#e8f0fc;
+  --stage5:#818cf8;--stage6:#34d399;--full:#fb923c;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.75;}
+
+.header{padding:52px 44px 36px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.header::after{content:'';position:absolute;top:-80px;right:-40px;width:420px;height:420px;background:radial-gradient(circle,rgba(251,146,60,.09) 0%,transparent 70%);pointer-events:none;}
+.header::before{content:'';position:absolute;bottom:-60px;left:280px;width:340px;height:340px;background:radial-gradient(circle,rgba(129,140,248,.07) 0%,transparent 70%);pointer-events:none;}
+.stage-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.25);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 14px;border-radius:20px;margin-bottom:18px;letter-spacing:1.2px;}
+.header h1{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--white);letter-spacing:-1.5px;margin-bottom:10px;}
+.header h1 em{color:var(--accent);font-style:normal;}
+.header p{color:var(--muted);font-size:14.5px;max-width:640px;font-weight:300;}
+.header-meta{display:flex;gap:14px;margin-top:20px;flex-wrap:wrap;}
+.meta-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--muted);}
+.meta-pill span{color:var(--white);font-weight:500;}
+
+.nav{display:flex;padding:0 44px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:100;}
+.nav-tab{padding:13px 16px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:7px;user-select:none;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--white);border-bottom-color:var(--accent);}
+.nav-tab .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+.content{padding:44px;max-width:960px;}
+.section{display:none;}
+.section.active{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.sec-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--white);margin-bottom:8px;letter-spacing:-.5px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.sec-subtitle{color:var(--muted);font-size:14px;margin-bottom:30px;}
+h3{font-family:'Syne',sans-serif;font-size:15.5px;font-weight:700;color:var(--white);margin:32px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.divider{height:1px;background:var(--border);margin:36px 0;}
+
+.tag{display:inline-block;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.6px;font-family:'JetBrains Mono',monospace;}
+.tag-orange{background:rgba(251,146,60,.12);color:#fdba74;border:1px solid rgba(251,146,60,.25);}
+.tag-green{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.25);}
+.tag-indigo{background:rgba(129,140,248,.12);color:#a5b4fc;border:1px solid rgba(129,140,248,.25);}
+.tag-pink{background:rgba(244,114,182,.12);color:#f9a8d4;border:1px solid rgba(244,114,182,.25);}
+.tag-amber{background:rgba(251,191,36,.12);color:#fde68a;border:1px solid rgba(251,191,36,.25);}
+.tag-free{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.25);}
+.tag-paid{background:rgba(251,191,36,.12);color:#fde68a;border:1px solid rgba(251,191,36,.25);}
+
+.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:18px 0;}
+.code-header{background:var(--surface2);padding:10px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+.code-header .fname{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+.copy-btn{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.25);color:var(--accent);font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.copy-btn:hover{background:rgba(251,146,60,.2);}
+.copy-btn.copied{color:var(--accent2);}
+pre{padding:22px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.85;color:#b0c8e0;}
+.kw{color:#c792ea;}.fn{color:#82aaff;}.str{color:#c3e88d;}.cm{color:#2a4260;font-style:italic;}
+.imp{color:#ffcb6b;}.num{color:#f78c6c;}.cls{color:#ffcb6b;}.dec{color:#89ddff;}.op{color:#89ddff;}
+
+.callout{padding:16px 20px;border-radius:10px;margin:18px 0;border-left:3px solid;font-size:13.5px;}
+.callout-orange{background:rgba(251,146,60,.07);border-color:var(--accent);color:#fdba74;}
+.callout-green{background:rgba(52,211,153,.07);border-color:var(--accent2);color:#86efbc;}
+.callout-indigo{background:rgba(129,140,248,.07);border-color:var(--accent3);color:#c7d2fe;}
+.callout-amber{background:rgba(251,191,36,.07);border-color:var(--accent5);color:#fde68a;}
+.callout-pink{background:rgba(244,114,182,.07);border-color:var(--accent4);color:#f9a8d4;}
+.callout strong{color:var(--white);}
+.callout code{font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d;}
+
+.flow-steps{margin:22px 0;}
+.flow-step{display:flex;gap:16px;margin-bottom:14px;align-items:flex-start;}
+.step-num{width:28px;height:28px;border-radius:50%;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.3);color:var(--accent);font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.step-body strong{color:var(--white);font-size:14px;}
+.step-body p{color:var(--muted);font-size:12.5px;margin-top:2px;}
+
+.comp-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:16px 0;}
+.comp-table th{text-align:left;padding:10px 14px;background:var(--surface2);color:var(--muted);font-weight:500;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.comp-table td{padding:10px 14px;border-bottom:1px solid rgba(28,45,66,.7);vertical-align:middle;}
+.comp-table tr:hover td{background:rgba(255,255,255,.015);}
+.comp-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);background:rgba(129,140,248,.08);padding:1px 6px;border-radius:3px;}
+.price-free{color:var(--accent2);font-weight:700;}
+.price-paid{color:var(--accent5);font-weight:700;}
+
+.llm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;}
+.llm-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;border-top:3px solid transparent;transition:all .2s;}
+.llm-card:hover{transform:translateY(-2px);}
+.llm-card.local{border-top-color:var(--accent2);}
+.llm-card.api-card{border-top-color:var(--accent5);}
+.lc-name{font-family:'Syne',sans-serif;font-size:14.5px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.lc-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.lc-desc{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+.lc-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.lc-stats{display:flex;gap:7px;flex-wrap:wrap;}
+.lc-stat{background:var(--surface2);border:1px solid var(--border);padding:3px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);}
+
+.dtree{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0;}
+.dtree-q{background:var(--surface2);border:1px solid rgba(251,146,60,.25);color:var(--accent);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:14px;}
+.dtree-row{display:flex;gap:10px;margin-bottom:10px;padding-left:16px;align-items:flex-start;}
+.dtree-cond{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent5);white-space:nowrap;background:rgba(251,191,36,.08);padding:2px 8px;border-radius:4px;margin-top:2px;flex-shrink:0;}
+.dtree-result{font-size:13px;color:var(--text);}
+.dtree-result strong{color:var(--accent2);}
+
+.pipeline-stage{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin:14px 0;display:flex;gap:18px;align-items:flex-start;}
+.ps-num{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;flex-shrink:0;}
+.ps-body{}
+.ps-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.ps-desc{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:8px;}
+.ps-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);background:rgba(129,140,248,.08);padding:3px 10px;border-radius:4px;display:inline-block;}
+.ps-arrow{text-align:center;color:var(--muted);font-size:18px;margin:4px 0;}
+
+.summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:28px;}
+.summary h4{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--white);margin-bottom:16px;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(28,45,66,.5);font-size:13px;}
+.summary-row:last-child{border-bottom:none;}
+.summary-row .lbl{color:var(--muted);}
+.summary-row .val{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--accent);}
+
+/* prompt box */
+.prompt-box{background:var(--code-bg);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:20px;margin:16px 0;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.9;}
+.prompt-system{color:#c792ea;}
+.prompt-context{color:#c3e88d;}
+.prompt-question{color:#82aaff;}
+.prompt-label{font-size:10px;color:var(--muted);margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase;}
+.prompt-section{margin-bottom:14px;padding:10px 14px;border-radius:6px;}
+.ps-sys{background:rgba(199,114,234,.06);border-left:2px solid #c792ea;}
+.ps-ctx{background:rgba(195,232,141,.06);border-left:2px solid #c3e88d;}
+.ps-q{background:rgba(130,170,255,.06);border-left:2px solid #82aaff;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="stage-badge">◆ RAG PIPELINE · STAGES 5 &amp; 6 + FULL SYSTEM</div>
+  <h1>Retrieval + LLM <em>Masterclass</em></h1>
+  <p>Advanced retrieval strategies, every LLM option (local + API), prompt engineering for RAG, evaluation, and a complete end-to-end pipeline connecting all 6 stages — your definitive RAG reference.</p>
+  <div class="header-meta">
+    <div class="meta-pill">Stage 5: <span>Retrieval strategies</span></div>
+    <div class="meta-pill">Stage 6: <span>LLM generation</span></div>
+    <div class="meta-pill">LLMs: <span>Ollama · OpenAI · Groq · Gemini · Claude</span></div>
+    <div class="meta-pill">Bonus: <span>Evaluation + Advanced RAG</span></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showTab('overview')"><div class="dot" style="background:#fb923c"></div>Full RAG Overview</div>
+  <div class="nav-tab" onclick="showTab('retrieval')"><div class="dot" style="background:#818cf8"></div>Stage 5: Retrieval</div>
+  <div class="nav-tab" onclick="showTab('advanced-ret')"><div class="dot" style="background:#818cf8"></div>Advanced Retrieval</div>
+  <div class="nav-tab" onclick="showTab('llms')"><div class="dot" style="background:#34d399"></div>Stage 6: LLMs</div>
+  <div class="nav-tab" onclick="showTab('ollama')"><div class="dot" style="background:#34d399"></div>Ollama (Local)</div>
+  <div class="nav-tab" onclick="showTab('api-llms')"><div class="dot" style="background:#fbbf24"></div>API LLMs</div>
+  <div class="nav-tab" onclick="showTab('prompts')"><div class="dot" style="background:#f472b6"></div>Prompt Engineering</div>
+  <div class="nav-tab" onclick="showTab('chains')"><div class="dot" style="background:#fb923c"></div>LangChain Chains</div>
+  <div class="nav-tab" onclick="showTab('eval')"><div class="dot" style="background:#818cf8"></div>Evaluation</div>
+  <div class="nav-tab" onclick="showTab('pipeline')"><div class="dot" style="background:#34d399"></div>Full E2E Pipeline</div>
+</div>
+
+<div class="content">
+
+<!-- ══════ FULL RAG OVERVIEW ══════ -->
+<div class="section active" id="section-overview">
+  <div class="sec-title">The Complete RAG Pipeline — All 6 Stages <span class="tag tag-orange">MASTER VIEW</span></div>
+  <div class="sec-subtitle">Everything you've learned so far, connected into one coherent system. This is the reference you'll return to again and again.</div>
+
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(56,189,248,.15);color:#38bdf8;">1</div>
+    <div class="ps-body">
+      <div class="ps-title">Data Ingestion</div>
+      <div class="ps-desc">Load PDFs, images (OCR), CSVs, HTML, markdown, JSON from disk. Every file becomes a list of <code style="font-family:monospace;color:#c3e88d">Document(page_content, metadata)</code> objects.</div>
+      <div class="ps-code">PyMuPDFLoader · CSVLoader · BSHTMLLoader · pytesseract</div>
+    </div>
+  </div>
+  <div class="ps-arrow">↓</div>
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(52,211,153,.15);color:#34d399;">2</div>
+    <div class="ps-body">
+      <div class="ps-title">Chunking</div>
+      <div class="ps-desc">Split large documents into smaller, retrievable pieces. Strategy depends on document type: Recursive for PDFs, Markdown splitter for .md, semantic for research, token-based for LLM limits.</div>
+      <div class="ps-code">RecursiveCharacterTextSplitter · MarkdownHeaderTextSplitter · SemanticChunker</div>
+    </div>
+  </div>
+  <div class="ps-arrow">↓</div>
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(167,139,250,.15);color:#a78bfa;">3</div>
+    <div class="ps-body">
+      <div class="ps-title">Embedding</div>
+      <div class="ps-desc">Convert each chunk into a float vector using an embedding model. Free: BGE, MiniLM, nomic via Ollama. Paid: OpenAI, Voyage, Cohere, Google. The embedding model must stay consistent — use same model at index and query time.</div>
+      <div class="ps-code">HuggingFaceEmbeddings · OllamaEmbeddings · OpenAIEmbeddings · VoyageAIEmbeddings</div>
+    </div>
+  </div>
+  <div class="ps-arrow">↓</div>
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(56,189,248,.15);color:#38bdf8;">4</div>
+    <div class="ps-body">
+      <div class="ps-title">Vector Store</div>
+      <div class="ps-desc">Store vectors + documents + metadata in a searchable database. Free: ChromaDB, FAISS, Qdrant (Docker). Cloud: Pinecone, Weaviate. HNSW index enables millisecond approximate nearest-neighbour search at any scale.</div>
+      <div class="ps-code">Chroma · FAISS · QdrantVectorStore · PineconeVectorStore</div>
+    </div>
+  </div>
+  <div class="ps-arrow">↓</div>
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(129,140,248,.15);color:#818cf8;">5</div>
+    <div class="ps-body">
+      <div class="ps-title">Retrieval ← YOU ARE HERE</div>
+      <div class="ps-desc">At query time, embed the question, find top-k most similar chunks via ANN search, optionally rerank, filter by metadata. Advanced: HyDE, multi-query, parent-document, contextual compression retrieval.</div>
+      <div class="ps-code">similarity_search · MMR · MultiQueryRetriever · ContextualCompressionRetriever · Reranker</div>
+    </div>
+  </div>
+  <div class="ps-arrow">↓</div>
+  <div class="pipeline-stage">
+    <div class="ps-num" style="background:rgba(251,146,60,.15);color:#fb923c;">6</div>
+    <div class="ps-body">
+      <div class="ps-title">LLM Generation ← YOU ARE HERE</div>
+      <div class="ps-desc">Pass retrieved chunks + user question to an LLM via a structured prompt. LLM generates a grounded answer using only the provided context. Local: Ollama (llama3, mistral). API: GPT-4o, Gemini, Claude, Groq.</div>
+      <div class="ps-code">OllamaLLM · ChatOpenAI · ChatGoogleGenerativeAI · ChatAnthropic · ChatGroq</div>
+    </div>
+  </div>
+
+  <div class="callout callout-orange" style="margin-top:24px">
+    <strong>The golden rule of RAG:</strong> Retrieval quality &gt; LLM quality. A powerful LLM can't save bad retrieval. Invest 80% of your effort in stages 1–5. A well-retrieved set of 5 chunks with a medium LLM beats poorly-retrieved chunks with GPT-4o.
+  </div>
+</div>
+
+<!-- ══════ STAGE 5: RETRIEVAL ══════ -->
+<div class="section" id="section-retrieval">
+  <div class="sec-title">Stage 5: Retrieval Strategies <span class="tag tag-indigo">STAGE 5</span></div>
+  <div class="sec-subtitle">How to get the right chunks at query time. The difference between good and great RAG is almost always the retrieval strategy.</div>
+
+  <h3>① Basic Similarity Search</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_basic.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># vectorstore = your built vector store from Stage 4</span>
+
+<span class="cm"># ── Top-k similarity search ────────────────────────────</span>
+query = <span class="str">"What are the side effects of aspirin?"</span>
+results = vectorstore.similarity_search(query, k=<span class="num">5</span>)
+<span class="kw">for</span> i, doc <span class="kw">in</span> <span class="fn">enumerate</span>(results):
+    <span class="fn">print</span>(<span class="str">f"[{i+1}] {doc.metadata.get('source')} | {doc.page_content[:120]}"</span>)
+
+<span class="cm"># ── With relevance scores ──────────────────────────────</span>
+results = vectorstore.similarity_search_with_relevance_scores(query, k=<span class="num">5</span>)
+<span class="kw">for</span> doc, score <span class="kw">in</span> results:
+    <span class="fn">print</span>(<span class="str">f"Score: {score:.4f} | {doc.page_content[:100]}"</span>)
+
+<span class="cm"># ── Score threshold — only return if above cutoff ─────</span>
+retriever = vectorstore.as_retriever(
+    search_type=<span class="str">"similarity_score_threshold"</span>,
+    search_kwargs={<span class="str">"score_threshold"</span>: <span class="num">0.75</span>, <span class="str">"k"</span>: <span class="num">5</span>}
+)
+<span class="cm"># Only returns chunks with similarity ≥ 0.75</span>
+<span class="cm"># Prevents returning irrelevant chunks when query is out-of-domain</span>
+docs = retriever.invoke(query)
+<span class="fn">print</span>(<span class="str">f"Relevant docs above threshold: {len(docs)}"</span>)</pre>
+  </div>
+
+  <h3>② MMR — Maximum Marginal Relevance (Diversity-aware retrieval)</h3>
+  <div class="callout callout-indigo">
+    <strong>Problem MMR solves:</strong> Without MMR, top-5 results are often 5 near-identical chunks that all say the same thing — wasting your context window. MMR balances relevance + diversity to return broader coverage.
+  </div>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_mmr.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># MMR: fetch_k candidates, then select k most diverse among them</span>
+retriever_mmr = vectorstore.as_retriever(
+    search_type=<span class="str">"mmr"</span>,
+    search_kwargs={
+        <span class="str">"k"</span>: <span class="num">5</span>,          <span class="cm"># final number to return</span>
+        <span class="str">"fetch_k"</span>: <span class="num">20</span>,   <span class="cm"># candidates to fetch before diversity filtering</span>
+        <span class="str">"lambda_mult"</span>: <span class="num">0.5</span>  <span class="cm"># 0=max diversity, 1=max relevance, 0.5=balanced</span>
+    }
+)
+docs = retriever_mmr.invoke(<span class="str">"What is RAG?"</span>)
+<span class="fn">print</span>(<span class="str">f"MMR returned {len(docs)} diverse chunks"</span>)
+
+<span class="cm"># When to use MMR:
+# - Long documents covering many sub-topics
+# - When you want broad coverage of a topic
+# - When top-k returns near-duplicate chunks</span></pre>
+  </div>
+
+  <h3>③ Self-Query Retriever — LLM generates filters from natural language</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_selfquery.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.retrievers.self_query.base</span> <span class="kw">import</span> <span class="cls">SelfQueryRetriever</span>
+<span class="kw">from</span> <span class="imp">langchain.chains.query_constructor.base</span> <span class="kw">import</span> <span class="cls">AttributeInfo</span>
+<span class="kw">from</span> <span class="imp">langchain_openai</span> <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+
+<span class="cm"># Define your metadata fields so the LLM knows what can be filtered</span>
+metadata_field_info = [
+    <span class="cls">AttributeInfo</span>(name=<span class="str">"source"</span>,    description=<span class="str">"source file path"</span>,      type=<span class="str">"string"</span>),
+    <span class="cls">AttributeInfo</span>(name=<span class="str">"page"</span>,      description=<span class="str">"page number in PDF"</span>,     type=<span class="str">"integer"</span>),
+    <span class="cls">AttributeInfo</span>(name=<span class="str">"data_type"</span>, description=<span class="str">"pdf, markdown, csv, image"</span>, type=<span class="str">"string"</span>),
+    <span class="cls">AttributeInfo</span>(name=<span class="str">"language"</span>, description=<span class="str">"language of the document"</span>, type=<span class="str">"string"</span>),
+]
+
+llm = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>, temperature=<span class="num">0</span>)
+
+self_query_retriever = <span class="cls">SelfQueryRetriever</span>.from_llm(
+    llm=llm,
+    vectorstore=vectorstore,
+    document_contents=<span class="str">"Technical documentation about RAG pipelines"</span>,
+    metadata_field_info=metadata_field_info,
+    verbose=<span class="dec">True</span>
+)
+
+<span class="cm"># Now natural language queries auto-generate filters!</span>
+docs = self_query_retriever.invoke(
+    <span class="str">"Find chunks from PDF files on page 3 or later"</span>
+)
+<span class="cm"># The LLM translates this → filter: {"data_type": "pdf", "page": {"$gte": 3}}</span>
+
+docs2 = self_query_retriever.invoke(
+    <span class="str">"Show me English content about embedding models"</span>
+)
+<span class="cm"># Auto generates → semantic search + filter: {"language": "en"}</span></pre>
+  </div>
+
+  <h3>④ Ensemble / Hybrid Retriever — BM25 + Dense</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_ensemble.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># pip install rank_bm25</span>
+<span class="kw">from</span> <span class="imp">langchain.retrievers</span> <span class="kw">import</span> <span class="cls">BM25Retriever</span>, <span class="cls">EnsembleRetriever</span>
+
+<span class="cm"># BM25 = traditional keyword search (exact match, TF-IDF based)</span>
+bm25_retriever = <span class="cls">BM25Retriever</span>.from_documents(stage2_chunks)
+bm25_retriever.k = <span class="num">5</span>
+
+<span class="cm"># Dense = semantic vector search</span>
+dense_retriever = vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})
+
+<span class="cm"># Ensemble = combine both with weighted scores</span>
+ensemble_retriever = <span class="cls">EnsembleRetriever</span>(
+    retrievers=[bm25_retriever, dense_retriever],
+    weights=[<span class="num">0.4</span>, <span class="num">0.6</span>]   <span class="cm"># 40% BM25 + 60% semantic</span>
+)
+
+docs = ensemble_retriever.invoke(<span class="str">"RAG pipeline architecture"</span>)
+<span class="fn">print</span>(<span class="str">f"Hybrid retrieval: {len(docs)} chunks"</span>)
+
+<span class="cm"># When to use ensemble:
+# - Queries with specific technical terms (BM25 catches exact keywords)
+# - When semantic search alone misses exact acronyms/names
+# - Best of both worlds for most production RAG systems</span></pre>
+  </div>
+</div>
+
+<!-- ══════ ADVANCED RETRIEVAL ══════ -->
+<div class="section" id="section-advanced-ret">
+  <div class="sec-title">Advanced Retrieval Patterns <span class="tag tag-indigo">ADVANCED</span></div>
+  <div class="sec-subtitle">Production-grade retrieval techniques used in state-of-the-art RAG systems.</div>
+
+  <h3>① Multi-Query Retriever — Generate multiple queries automatically</h3>
+  <div class="callout callout-indigo">
+    <strong>Problem it solves:</strong> A single query may miss relevant chunks depending on exact phrasing. Multi-query generates 3–5 different phrasings of your question and retrieves for all of them — dramatically improving recall.
+  </div>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_multiquery.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.retrievers.multi_query</span> <span class="kw">import</span> <span class="cls">MultiQueryRetriever</span>
+<span class="kw">from</span> <span class="imp">langchain_community.llms</span> <span class="kw">import</span> <span class="cls">Ollama</span>
+
+<span class="cm"># Uses LLM to rewrite your question 5 different ways</span>
+<span class="cm"># then retrieves for ALL of them and deduplicates results</span>
+llm = <span class="cls">Ollama</span>(model=<span class="str">"llama3.2"</span>)   <span class="cm"># any LLM works here</span>
+
+mq_retriever = <span class="cls">MultiQueryRetriever</span>.from_llm(
+    retriever=vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">4</span>}),
+    llm=llm,
+    include_original=<span class="dec">True</span>  <span class="cm"># also include original query results</span>
+)
+
+<span class="cm"># The LLM generates variants like:
+# Original: "What is RAG?"
+# Variant 1: "How does retrieval augmented generation work?"
+# Variant 2: "Explain the concept of RAG in NLP"
+# Variant 3: "What is the purpose of retrieval in language models?"
+# Retrieves for ALL → deduplicates → returns unique set</span>
+
+docs = mq_retriever.invoke(<span class="str">"What is RAG?"</span>)
+<span class="fn">print</span>(<span class="str">f"Multi-query returned {len(docs)} unique chunks"</span>)</pre>
+  </div>
+
+  <h3>② HyDE — Hypothetical Document Embeddings</h3>
+  <div class="callout callout-green">
+    <strong>Brilliant trick:</strong> Instead of embedding the question directly, ask the LLM to write a hypothetical answer first, then embed that answer. A hypothetical answer is more similar to real document chunks than the question itself.
+  </div>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_hyde.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.prompts</span> <span class="kw">import</span> <span class="cls">PromptTemplate</span>
+<span class="kw">from</span> <span class="imp">langchain_community.llms</span> <span class="kw">import</span> <span class="cls">Ollama</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+
+llm = <span class="cls">Ollama</span>(model=<span class="str">"llama3.2"</span>)
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>)
+
+<span class="kw">def</span> <span class="fn">hyde_retrieve</span>(query: <span class="fn">str</span>, vectorstore, k: <span class="fn">int</span> = <span class="num">5</span>):
+    <span class="str">"""HyDE: generate hypothetical answer, embed it, retrieve similar chunks."""</span>
+
+    <span class="cm"># Step 1: Generate hypothetical answer</span>
+    hyde_prompt = <span class="str">f"""Write a detailed, factual paragraph that would answer 
+this question. Write as if from a technical document. Do not mention 
+you are hypothesizing — just write the answer directly.
+
+Question: {query}
+Answer:"""</span>
+    hypo_answer = llm.invoke(hyde_prompt)
+    <span class="fn">print</span>(<span class="str">f"Hypothetical answer: {hypo_answer[:100]}..."</span>)
+
+    <span class="cm"># Step 2: Embed the hypothetical answer (not the question!)</span>
+    hypo_embedding = embeddings.embed_query(hypo_answer)
+
+    <span class="cm"># Step 3: Search with hypothetical embedding</span>
+    docs = vectorstore.similarity_search_by_vector(hypo_embedding, k=k)
+    <span class="kw">return</span> docs
+
+results = <span class="fn">hyde_retrieve</span>(<span class="str">"How does HNSW indexing work?"</span>, vectorstore)
+<span class="fn">print</span>(<span class="str">f"HyDE retrieved: {len(results)} chunks"</span>)</pre>
+  </div>
+
+  <h3>③ Contextual Compression — Filter irrelevant content within chunks</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_compression.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.retrievers</span> <span class="kw">import</span> <span class="cls">ContextualCompressionRetriever</span>
+<span class="kw">from</span> <span class="imp">langchain.retrievers.document_compressors</span> <span class="kw">import</span> <span class="cls">LLMChainExtractor</span>
+<span class="kw">from</span> <span class="imp">langchain_community.llms</span> <span class="kw">import</span> <span class="cls">Ollama</span>
+
+llm = <span class="cls">Ollama</span>(model=<span class="str">"llama3.2"</span>)
+
+<span class="cm"># Compressor: given chunk + query → extract only the relevant sentences</span>
+compressor = <span class="cls">LLMChainExtractor</span>.from_llm(llm)
+
+<span class="cm"># Wrap your base retriever with compression</span>
+compression_retriever = <span class="cls">ContextualCompressionRetriever</span>(
+    base_compressor=compressor,
+    base_retriever=vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})
+)
+
+<span class="cm"># Now returned documents contain ONLY the relevant sentences from each chunk
+# — not the whole 1000-char chunk</span>
+docs = compression_retriever.invoke(<span class="str">"What is the chunk overlap parameter?"</span>)
+<span class="kw">for</span> doc <span class="kw">in</span> docs:
+    <span class="fn">print</span>(<span class="str">f"Compressed chunk ({len(doc.page_content)} chars):\n{doc.page_content}\n"</span>)</pre>
+  </div>
+
+  <h3>④ Reranking — Cross-encoder for precision</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_rerank.py — pip install sentence-transformers</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">sentence_transformers</span> <span class="kw">import</span> <span class="cls">CrossEncoder</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># Cross-encoder: reads query + chunk TOGETHER — much more accurate than bi-encoder
+# Use: fetch top-20 with fast ANN, rerank with cross-encoder, take top-5</span>
+cross_encoder = <span class="cls">CrossEncoder</span>(<span class="str">"cross-encoder/ms-marco-MiniLM-L-6-v2"</span>)
+
+<span class="kw">def</span> <span class="fn">rerank_documents</span>(query: <span class="fn">str</span>, docs: <span class="fn">list</span>[<span class="cls">Document</span>], top_k: <span class="fn">int</span> = <span class="num">5</span>):
+    <span class="str">"""Rerank retrieved docs using a cross-encoder for higher precision."""</span>
+    pairs = [(query, doc.page_content) <span class="kw">for</span> doc <span class="kw">in</span> docs]
+    scores = cross_encoder.predict(pairs)
+
+    ranked = <span class="fn">sorted</span>(<span class="fn">zip</span>(scores, docs), key=<span class="kw">lambda</span> x: x[<span class="num">0</span>], reverse=<span class="dec">True</span>)
+    <span class="kw">return</span> [doc <span class="kw">for</span> _, doc <span class="kw">in</span> ranked[:top_k]]
+
+<span class="cm"># Two-stage retrieval pipeline</span>
+query = <span class="str">"How does HNSW graph search work?"</span>
+<span class="cm"># Stage 1: Fast ANN fetch (top-20, less precise)</span>
+candidates = vectorstore.similarity_search(query, k=<span class="num">20</span>)
+<span class="cm"># Stage 2: Cross-encoder rerank (top-5, highly precise)</span>
+final_docs = <span class="fn">rerank_documents</span>(query, candidates, top_k=<span class="num">5</span>)
+
+<span class="fn">print</span>(<span class="str">f"After reranking: {len(final_docs)} precision-ranked chunks"</span>)
+<span class="kw">for</span> i, doc <span class="kw">in</span> <span class="fn">enumerate</span>(final_docs):
+    <span class="fn">print</span>(<span class="str">f"[{i+1}] {doc.page_content[:120]}"</span>)</pre>
+  </div>
+
+  <h3>⑤ Parent Document Retriever — Index child, return parent</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">retrieval_parent_document.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.retrievers</span> <span class="kw">import</span> <span class="cls">ParentDocumentRetriever</span>
+<span class="kw">from</span> <span class="imp">langchain.storage</span> <span class="kw">import</span> <span class="cls">InMemoryStore</span>
+<span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>
+
+<span class="cm"># Child: small chunks (for precise embedding + retrieval)
+# Parent: large chunks (for rich LLM context)
+# Index child chunks → retrieve → return parent chunk</span>
+
+child_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(chunk_size=<span class="num">200</span>)  <span class="cm"># small</span>
+parent_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(chunk_size=<span class="num">1000</span>) <span class="cm"># large</span>
+
+store = <span class="cls">InMemoryStore</span>()  <span class="cm"># stores parent docs</span>
+
+retriever = <span class="cls">ParentDocumentRetriever</span>(
+    vectorstore=vectorstore,
+    docstore=store,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter
+)
+retriever.add_documents(stage1_docs)
+
+<span class="cm"># Query matches small child chunks (precise) but returns large parent chunks (rich)</span>
+docs = retriever.invoke(<span class="str">"What is chunk overlap?"</span>)
+<span class="fn">print</span>(<span class="str">f"Returned {len(docs)} parent chunks"</span>)
+<span class="fn">print</span>(<span class="str">f"Parent chunk size: {len(docs[0].page_content)} chars"</span>)</pre>
+  </div>
+</div>
+
+<!-- ══════ STAGE 6: LLMs ══════ -->
+<div class="section" id="section-llms">
+  <div class="sec-title">Stage 6: LLM Models — All Options <span class="tag tag-green">STAGE 6</span></div>
+  <div class="sec-subtitle">Every LLM you can use for RAG generation — local/free via Ollama, and paid APIs. All have LangChain support.</div>
+
+  <div class="llm-grid">
+    <div class="llm-card local">
+      <div class="lc-hdr"><div><div class="lc-name">Llama 3.2 / 3.3</div><div class="lc-sub">Meta AI · via Ollama</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="lc-desc">Best open-source LLM for RAG. 3B (fast, CPU) and 8B (better quality) variants. Excellent instruction following. Runs on your virtual desktop right now.</div>
+      <div class="lc-stats"><div class="lc-stat">3B / 8B / 70B</div><div class="lc-stat">128K context</div><div class="lc-stat">CPU friendly</div></div>
+    </div>
+    <div class="llm-card local">
+      <div class="lc-hdr"><div><div class="lc-name">Mistral / Mixtral</div><div class="lc-sub">Mistral AI · via Ollama</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="lc-desc">Excellent for European languages and technical content. Mistral 7B is fast; Mixtral 8x7B (MoE) is very powerful. Great for code-related RAG.</div>
+      <div class="lc-stats"><div class="lc-stat">7B / 8x7B</div><div class="lc-stat">32K context</div><div class="lc-stat">Multilingual</div></div>
+    </div>
+    <div class="llm-card local">
+      <div class="lc-hdr"><div><div class="lc-name">Gemma 2 / 3</div><div class="lc-sub">Google · via Ollama</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="lc-desc">Google's open model. Gemma 3 27B is surprisingly capable. 2B is very fast for simple Q&A RAG. Good instruction following for structured output.</div>
+      <div class="lc-stats"><div class="lc-stat">2B / 9B / 27B</div><div class="lc-stat">128K context</div><div class="lc-stat">Fast inference</div></div>
+    </div>
+    <div class="llm-card local">
+      <div class="lc-hdr"><div><div class="lc-name">Phi-4 / Phi-3.5</div><div class="lc-sub">Microsoft · via Ollama</div></div><span class="tag tag-free">FREE</span></div>
+      <div class="lc-desc">Microsoft's small but mighty models. Phi-4 14B punches well above its weight. Best reasoning-per-parameter among small models. Great for CPU-only setups.</div>
+      <div class="lc-stats"><div class="lc-stat">3.8B / 14B</div><div class="lc-stat">Strong reasoning</div><div class="lc-stat">Low RAM</div></div>
+    </div>
+    <div class="llm-card api-card">
+      <div class="lc-hdr"><div><div class="lc-name">GPT-4o / GPT-4o-mini</div><div class="lc-sub">OpenAI</div></div><span class="tag tag-paid">$0.15–$15/MTok</span></div>
+      <div class="lc-desc">Most reliable for production RAG. GPT-4o-mini is great value ($0.15/MTok). Excellent instruction following, handles long contexts gracefully. 128K context.</div>
+      <div class="lc-stats"><div class="lc-stat">128K context</div><div class="lc-stat">Function calling</div><div class="lc-stat">Streaming</div></div>
+    </div>
+    <div class="llm-card api-card">
+      <div class="lc-hdr"><div><div class="lc-name">Gemini 2.0 / 2.5 Flash</div><div class="lc-sub">Google</div></div><span class="tag tag-free">Free tier</span></div>
+      <div class="lc-desc">Gemini 2.0 Flash is free tier available. 1M token context — embed your entire codebase. Fastest response times. Excellent for document-heavy RAG pipelines.</div>
+      <div class="lc-stats"><div class="lc-stat">1M context</div><div class="lc-stat">Free tier</div><div class="lc-stat">Multimodal</div></div>
+    </div>
+    <div class="llm-card api-card">
+      <div class="lc-hdr"><div><div class="lc-name">Claude 3.5 / 3.7 Sonnet</div><div class="lc-sub">Anthropic</div></div><span class="tag tag-paid">$3/MTok</span></div>
+      <div class="lc-desc">Best quality reasoning for complex RAG tasks. Excellent at following nuanced instructions, staying grounded in context, and refusing to hallucinate when evidence is missing.</div>
+      <div class="lc-stats"><div class="lc-stat">200K context</div><div class="lc-stat">Best reasoning</div><div class="lc-stat">Low hallucination</div></div>
+    </div>
+    <div class="llm-card api-card">
+      <div class="lc-hdr"><div><div class="lc-name">Llama 3.3 / Mixtral (Groq)</div><div class="lc-sub">Groq API</div></div><span class="tag tag-free">Free tier</span></div>
+      <div class="lc-desc">Open-source models running on Groq's LPU hardware — 500+ tokens/second. Free tier available. Best if you want open-source model quality at near-instant speed.</div>
+      <div class="lc-stats"><div class="lc-stat">500 tok/s</div><div class="lc-stat">Free tier</div><div class="lc-stat">groq.com</div></div>
+    </div>
+  </div>
+
+  <h3>LLM Comparison for RAG</h3>
+  <table class="comp-table">
+    <tr><th>Model</th><th>Provider</th><th>Context</th><th>RAG Quality</th><th>Speed</th><th>Cost</th><th>Best For</th></tr>
+    <tr><td><code>llama3.2:3b</code></td><td>Ollama</td><td>128K</td><td>Good</td><td>⚡⚡⚡⚡</td><td class="price-free">FREE</td><td>CPU, fast answers</td></tr>
+    <tr><td><code>llama3.2:8b</code></td><td>Ollama</td><td>128K</td><td>Very Good</td><td>⚡⚡⚡</td><td class="price-free">FREE</td><td>Best local RAG</td></tr>
+    <tr><td><code>mistral:7b</code></td><td>Ollama</td><td>32K</td><td>Very Good</td><td>⚡⚡⚡</td><td class="price-free">FREE</td><td>Technical docs</td></tr>
+    <tr><td><code>phi4:14b</code></td><td>Ollama</td><td>16K</td><td>Good</td><td>⚡⚡</td><td class="price-free">FREE</td><td>Reasoning</td></tr>
+    <tr><td><code>gpt-4o-mini</code></td><td>OpenAI</td><td>128K</td><td>Excellent</td><td>⚡⚡⚡⚡</td><td class="price-paid">$0.15/MTok</td><td>Best value API</td></tr>
+    <tr><td><code>gemini-2.0-flash</code></td><td>Google</td><td>1M</td><td>Excellent</td><td>⚡⚡⚡⚡</td><td class="price-free">Free tier</td><td>Long docs</td></tr>
+    <tr><td><code>claude-sonnet-4-5</code></td><td>Anthropic</td><td>200K</td><td>Best</td><td>⚡⚡⚡</td><td class="price-paid">$3/MTok</td><td>Complex RAG</td></tr>
+    <tr><td><code>llama3-70b-8192</code></td><td>Groq</td><td>8K</td><td>Very Good</td><td>⚡⚡⚡⚡⚡</td><td class="price-free">Free tier</td><td>Speed + quality</td></tr>
+  </table>
+</div>
+
+<!-- ══════ OLLAMA LOCAL ══════ -->
+<div class="section" id="section-ollama">
+  <div class="sec-title">Ollama — Local LLMs Complete Guide <span class="tag tag-free">FREE · OFFLINE</span></div>
+  <div class="sec-subtitle">Run powerful LLMs completely offline on your virtual desktop. No API key, no cost, no data leaves your machine.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal — Ollama setup</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># Install Ollama (Linux/Mac)</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+
+<span class="cm"># Pull LLMs (download once)</span>
+ollama pull llama3.2          <span class="cm"># 3B — fast, good for most tasks</span>
+ollama pull llama3.2:8b       <span class="cm"># 8B — better quality</span>
+ollama pull mistral           <span class="cm"># Mistral 7B</span>
+ollama pull phi4              <span class="cm"># Microsoft Phi-4 14B</span>
+ollama pull gemma3:9b         <span class="cm"># Google Gemma 3 9B</span>
+
+<span class="cm"># Pull embedding models too</span>
+ollama pull nomic-embed-text
+ollama pull mxbai-embed-large
+
+<span class="cm"># List all models</span>
+ollama list
+
+<span class="cm"># Test in terminal</span>
+ollama run llama3.2 "What is RAG in NLP?"</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">ollama_rag.py — full RAG with 100% local models</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">OllamaLLM</span>, <span class="cls">OllamaEmbeddings</span>, <span class="cls">ChatOllama</span>
+<span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+<span class="kw">from</span> <span class="imp">langchain.prompts</span> <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="kw">from</span> <span class="imp">langchain.schema.runnable</span> <span class="kw">import</span> <span class="cls">RunnablePassthrough</span>
+<span class="kw">from</span> <span class="imp">langchain.schema.output_parser</span> <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+<span class="cm"># ── 100% LOCAL — no internet needed after model download ──</span>
+
+<span class="cm"># Local embedding model</span>
+embeddings = <span class="cls">OllamaEmbeddings</span>(model=<span class="str">"nomic-embed-text"</span>)
+
+<span class="cm"># Load vector store</span>
+vectorstore = <span class="cls">Chroma</span>(
+    persist_directory=<span class="str">"./chroma_db"</span>,
+    embedding_function=embeddings
+)
+retriever = vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})
+
+<span class="cm"># Local LLM</span>
+llm = <span class="cls">ChatOllama</span>(
+    model=<span class="str">"llama3.2"</span>,
+    temperature=<span class="num">0</span>,          <span class="cm"># 0 = deterministic, good for RAG</span>
+    num_ctx=<span class="num">4096</span>,           <span class="cm"># context window for the LLM</span>
+)
+
+<span class="cm"># RAG prompt template</span>
+rag_prompt = <span class="cls">ChatPromptTemplate</span>.from_template(<span class="str">"""
+You are a helpful AI assistant. Answer the question using ONLY 
+the context provided below. If the answer is not in the context, 
+say "I don't have enough information to answer this."
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""</span>)
+
+<span class="cm"># Format retrieved docs into a string</span>
+<span class="kw">def</span> <span class="fn">format_docs</span>(docs):
+    <span class="kw">return</span> <span class="str">"\n\n---\n\n"</span>.join([
+        <span class="str">f"Source: {d.metadata.get('source','unknown')}\n{d.page_content}"</span>
+        <span class="kw">for</span> d <span class="kw">in</span> docs
+    ])
+
+<span class="cm"># Build LCEL chain (LangChain Expression Language)</span>
+rag_chain = (
+    {<span class="str">"context"</span>: retriever | <span class="fn">format_docs</span>, <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>()}
+    | rag_prompt
+    | llm
+    | <span class="cls">StrOutputParser</span>()
+)
+
+<span class="cm"># Run the chain</span>
+question = <span class="str">"What is the difference between chunking and embedding?"</span>
+answer = rag_chain.invoke(question)
+<span class="fn">print</span>(<span class="str">f"Q: {question}"</span>)
+<span class="fn">print</span>(<span class="str">f"A: {answer}"</span>)
+
+<span class="cm"># ── Streaming output (see tokens as they generate) ────</span>
+<span class="fn">print</span>(<span class="str">"\n--- Streaming ---"</span>)
+<span class="kw">for</span> chunk <span class="kw">in</span> rag_chain.stream(question):
+    <span class="fn">print</span>(chunk, end=<span class="str">""</span>, flush=<span class="dec">True</span>)
+<span class="fn">print</span>()</pre>
+  </div>
+</div>
+
+<!-- ══════ API LLMs ══════ -->
+<div class="section" id="section-api-llms">
+  <div class="sec-title">API LLM Code — All Providers <span class="tag tag-amber">API</span></div>
+  <div class="sec-subtitle">Complete LangChain code for every major LLM API. All use the same chain structure — only the LLM object changes.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">llm_openai.py — OpenAI GPT-4o / GPT-4o-mini</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_openai</span> <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+<span class="cm"># ── GPT-4o-mini (best value) ──────────────────────────</span>
+llm = <span class="cls">ChatOpenAI</span>(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    temperature=<span class="num">0</span>,         <span class="cm"># 0 = consistent RAG answers</span>
+    max_tokens=<span class="num">1024</span>,
+    streaming=<span class="dec">True</span>
+)
+
+<span class="cm"># ── GPT-4o (best quality) ─────────────────────────────</span>
+llm_large = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o"</span>, temperature=<span class="num">0</span>)
+
+<span class="cm"># Drop into any RAG chain — same pattern as Ollama</span>
+answer = rag_chain.invoke(<span class="str">"Explain vector databases"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">llm_google.py — Gemini 2.0 Flash (free tier)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_google_genai</span> <span class="kw">import</span> <span class="cls">ChatGoogleGenerativeAI</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+<span class="cm"># Free API key: aistudio.google.com</span>
+
+llm = <span class="cls">ChatGoogleGenerativeAI</span>(
+    model=<span class="str">"gemini-2.0-flash"</span>,
+    temperature=<span class="num">0</span>,
+    max_output_tokens=<span class="num">2048</span>
+)
+<span class="cm"># Gemini 2.0 Flash has 1M token context — handle very large RAG context</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">llm_groq.py — Groq (free tier, 500+ tok/s)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># pip install langchain-groq</span>
+<span class="cm"># Free API key: console.groq.com</span>
+<span class="kw">from</span> <span class="imp">langchain_groq</span> <span class="kw">import</span> <span class="cls">ChatGroq</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+llm = <span class="cls">ChatGroq</span>(
+    model=<span class="str">"llama-3.3-70b-versatile"</span>,  <span class="cm"># open-source LLM on Groq hardware</span>
+    temperature=<span class="num">0</span>,
+    max_tokens=<span class="num">2048</span>
+)
+<span class="cm"># Also try: "mixtral-8x7b-32768", "gemma2-9b-it"</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">llm_anthropic.py — Claude Sonnet/Haiku</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># pip install langchain-anthropic</span>
+<span class="kw">from</span> <span class="imp">langchain_anthropic</span> <span class="kw">import</span> <span class="cls">ChatAnthropic</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+llm = <span class="cls">ChatAnthropic</span>(
+    model=<span class="str">"claude-haiku-4-5-20251001"</span>,  <span class="cm"># fast + cheap</span>
+    temperature=<span class="num">0</span>,
+    max_tokens=<span class="num">2048</span>
+)
+<span class="cm"># Also: "claude-sonnet-4-5" for best quality</span></pre>
+  </div>
+</div>
+
+<!-- ══════ PROMPT ENGINEERING ══════ -->
+<div class="section" id="section-prompts">
+  <div class="sec-title">Prompt Engineering for RAG <span class="tag tag-pink">CRITICAL SKILL</span></div>
+  <div class="sec-subtitle">The prompt template is what transforms raw retrieved chunks into a grounded, accurate, useful answer. These templates are battle-tested for production RAG.</div>
+
+  <div class="callout callout-pink">
+    <strong>The 3 components of every RAG prompt:</strong><br>
+    <strong style="color:#c792ea">System:</strong> Role + rules (stay grounded, don't hallucinate, cite sources)<br>
+    <strong style="color:#c3e88d">Context:</strong> Retrieved chunks from your vector store<br>
+    <strong style="color:#82aaff">Question:</strong> The user's actual question
+  </div>
+
+  <h3>Template 1 — Basic RAG Prompt</h3>
+  <div class="prompt-box">
+    <div class="prompt-section ps-sys">
+      <div class="prompt-label">SYSTEM</div>
+      <div class="prompt-system">You are a helpful assistant. Answer questions ONLY using the context below.
+If the answer is not in the context, say exactly: "I don't have enough information."
+Do not make up facts. Be concise and accurate.</div>
+    </div>
+    <div class="prompt-section ps-ctx">
+      <div class="prompt-label">CONTEXT (retrieved chunks)</div>
+      <div class="prompt-context">{context}</div>
+    </div>
+    <div class="prompt-section ps-q">
+      <div class="prompt-label">QUESTION</div>
+      <div class="prompt-question">{question}</div>
+    </div>
+  </div>
+
+  <h3>Template 2 — Citation RAG Prompt (production-grade)</h3>
+  <div class="prompt-box">
+    <div class="prompt-section ps-sys">
+      <div class="prompt-label">SYSTEM</div>
+      <div class="prompt-system">You are a precise document assistant. Rules:
+1. Answer using ONLY the provided context. Never add outside knowledge.
+2. After your answer, list sources as [Source: filename, page N].
+3. If context is insufficient, say: "The provided documents don't contain this information."
+4. Keep answers concise — 2-4 sentences unless detail is essential.</div>
+    </div>
+    <div class="prompt-section ps-ctx">
+      <div class="prompt-label">CONTEXT</div>
+      <div class="prompt-context">[1] Source: rag_guide.pdf, Page 3
+Retrieval Augmented Generation combines a retrieval system with a language model...
+
+[2] Source: embedding_tutorial.md, Section: Basics
+Embeddings are dense vector representations of text...</div>
+    </div>
+    <div class="prompt-section ps-q">
+      <div class="prompt-label">QUESTION</div>
+      <div class="prompt-question">How do embeddings work in a RAG system?</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">prompt_templates.py — all RAG prompt patterns</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.prompts</span> <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>, <span class="cls">PromptTemplate</span>
+
+<span class="cm"># ── Template 1: Basic RAG ─────────────────────────────</span>
+BASIC_RAG_PROMPT = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"""You are a helpful assistant. Answer ONLY using the context below.
+If the answer is not in the context, say: "I don't have enough information."
+Do not make up facts or use outside knowledge."""</span>),
+    (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}"</span>)
+])
+
+<span class="cm"># ── Template 2: Cited RAG ─────────────────────────────</span>
+CITED_RAG_PROMPT = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"""You are a precise document assistant. Follow these rules strictly:
+1. Answer using ONLY the provided context.
+2. After your answer, cite sources as [Source: filename].
+3. If context is insufficient say: "The documents don't contain this information."
+4. Be concise — 2-4 sentences unless more detail is required."""</span>),
+    (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}\n\nAnswer with citations:"</span>)
+])
+
+<span class="cm"># ── Template 3: Structured JSON output RAG ────────────</span>
+JSON_RAG_PROMPT = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"""Answer the question using the context. Return ONLY valid JSON:
+{{"answer": "your answer here", "confidence": 0.0-1.0, "sources": ["file1", "file2"]}}
+No explanation, no markdown — pure JSON only."""</span>),
+    (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}"</span>)
+])
+
+<span class="cm"># ── Template 4: Multi-turn conversational RAG ─────────</span>
+CONV_RAG_PROMPT = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"""You are a helpful assistant with access to a document database.
+Use the retrieved context to answer. If you reference previous conversation,
+make sure it's consistent with the new context provided."""</span>),
+    (<span class="str">"placeholder"</span>, <span class="str">"{chat_history}"</span>),  <span class="cm"># conversation history goes here</span>
+    (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}"</span>)
+])
+
+<span class="cm"># ── Template 5: Odia / Hindi multilingual RAG ─────────</span>
+MULTILINGUAL_RAG_PROMPT = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"""You are a helpful assistant. Answer in the same language as the question.
+Use ONLY the provided context. If insufficient, say so in the question's language."""</span>),
+    (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}"</span>)
+])
+
+<span class="cm"># ── Format context with source labels ────────────────</span>
+<span class="kw">def</span> <span class="fn">format_docs_with_sources</span>(docs):
+    <span class="str">"""Format retrieved docs with numbered source labels for citation."""</span>
+    formatted = []
+    <span class="kw">for</span> i, doc <span class="kw">in</span> <span class="fn">enumerate</span>(docs, <span class="num">1</span>):
+        source = doc.metadata.get(<span class="str">'source'</span>, <span class="str">'unknown'</span>)
+        page   = doc.metadata.get(<span class="str">'page'</span>, <span class="str">''</span>)
+        label  = <span class="str">f"[{i}] Source: {source}"</span> + (<span class="str">f", Page {page}"</span> <span class="kw">if</span> page <span class="kw">else</span> <span class="str">""</span>)
+        formatted.append(<span class="str">f"{label}\n{doc.page_content}"</span>)
+    <span class="kw">return</span> <span class="str">"\n\n"</span>.join(formatted)</pre>
+  </div>
+</div>
+
+<!-- ══════ LANGCHAIN CHAINS ══════ -->
+<div class="section" id="section-chains">
+  <div class="sec-title">LangChain RAG Chains — All Patterns <span class="tag tag-orange">LCEL</span></div>
+  <div class="sec-subtitle">Every RAG chain pattern you need — from simple Q&A to conversational multi-turn RAG with memory.</div>
+
+  <h3>Pattern 1 — Simple RAG Chain (LCEL)</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">chain_simple.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.schema.runnable</span> <span class="kw">import</span> <span class="cls">RunnablePassthrough</span>, <span class="cls">RunnableParallel</span>
+<span class="kw">from</span> <span class="imp">langchain.schema.output_parser</span> <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+<span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">ChatOllama</span>
+<span class="kw">from</span> <span class="imp">langchain.prompts</span> <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+
+llm = <span class="cls">ChatOllama</span>(model=<span class="str">"llama3.2"</span>, temperature=<span class="num">0</span>)
+retriever = vectorstore.as_retriever(search_kwargs={<span class="str">"k"</span>: <span class="num">5</span>})
+
+prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+    (<span class="str">"system"</span>, <span class="str">"Answer using ONLY this context. If not in context, say so.\n\nContext:\n{context}"</span>),
+    (<span class="str">"human"</span>, <span class="str">"{question}"</span>)
+])
+
+<span class="cm"># LCEL chain — reads left to right</span>
+rag_chain = (
+    <span class="cls">RunnableParallel</span>({
+        <span class="str">"context"</span>:  retriever | <span class="fn">format_docs_with_sources</span>,
+        <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>()
+    })
+    | prompt
+    | llm
+    | <span class="cls">StrOutputParser</span>()
+)
+
+answer = rag_chain.invoke(<span class="str">"What is semantic chunking?"</span>)
+<span class="fn">print</span>(answer)</pre>
+  </div>
+
+  <h3>Pattern 2 — RAG with Source Return</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">chain_with_sources.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.chains</span> <span class="kw">import</span> <span class="cls">RetrievalQA</span>
+<span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">ChatOllama</span>
+
+llm = <span class="cls">ChatOllama</span>(model=<span class="str">"llama3.2"</span>, temperature=<span class="num">0</span>)
+
+<span class="cm"># Return answer + source documents together</span>
+qa_chain = <span class="cls">RetrievalQA</span>.from_chain_type(
+    llm=llm,
+    chain_type=<span class="str">"stuff"</span>,         <span class="cm"># "stuff" = put all docs in prompt</span>
+    retriever=retriever,
+    return_source_documents=<span class="dec">True</span>,
+    chain_type_kwargs={<span class="str">"prompt"</span>: CITED_RAG_PROMPT}
+)
+
+result = qa_chain.invoke({<span class="str">"query"</span>: <span class="str">"How does HNSW work?"</span>})
+<span class="fn">print</span>(<span class="str">f"Answer:\n{result['result']}"</span>)
+<span class="fn">print</span>(<span class="str">f"\nSources used:"</span>)
+<span class="kw">for</span> doc <span class="kw">in</span> result[<span class="str">"source_documents"</span>]:
+    <span class="fn">print</span>(<span class="str">f"  - {doc.metadata.get('source')} (page {doc.metadata.get('page','-')})"</span>)</pre>
+  </div>
+
+  <h3>Pattern 3 — Conversational RAG with Memory</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">chain_conversational.py — chat that remembers history</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain.chains</span> <span class="kw">import</span> <span class="cls">ConversationalRetrievalChain</span>
+<span class="kw">from</span> <span class="imp">langchain.memory</span> <span class="kw">import</span> <span class="cls">ConversationBufferWindowMemory</span>
+<span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">ChatOllama</span>
+
+llm = <span class="cls">ChatOllama</span>(model=<span class="str">"llama3.2"</span>, temperature=<span class="num">0</span>)
+
+<span class="cm"># Memory: keeps last k exchanges in context</span>
+memory = <span class="cls">ConversationBufferWindowMemory</span>(
+    k=<span class="num">5</span>,                          <span class="cm"># keep last 5 exchanges</span>
+    memory_key=<span class="str">"chat_history"</span>,
+    output_key=<span class="str">"answer"</span>,
+    return_messages=<span class="dec">True</span>
+)
+
+conv_chain = <span class="cls">ConversationalRetrievalChain</span>.from_llm(
+    llm=llm,
+    retriever=retriever,
+    memory=memory,
+    return_source_documents=<span class="dec">True</span>,
+    verbose=<span class="dec">False</span>
+)
+
+<span class="cm"># Multi-turn conversation</span>
+questions = [
+    <span class="str">"What is RAG?"</span>,
+    <span class="str">"How does the retrieval step work?"</span>,   <span class="cm"># references previous context</span>
+    <span class="str">"What embedding models can I use?"</span>,
+    <span class="str">"Which one is free?"</span>                   <span class="cm"># uses chat history to understand "which one"</span>
+]
+
+<span class="kw">for</span> q <span class="kw">in</span> questions:
+    result = conv_chain.invoke({<span class="str">"question"</span>: q})
+    <span class="fn">print</span>(<span class="str">f"\nQ: {q}"</span>)
+    <span class="fn">print</span>(<span class="str">f"A: {result['answer']}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Sources: {[d.metadata.get('source','?') for d in result['source_documents']]}"</span>)</pre>
+  </div>
+
+  <h3>Pattern 4 — Streaming RAG (real-time output)</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="fname">chain_streaming.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">ChatOllama</span>
+
+llm_stream = <span class="cls">ChatOllama</span>(model=<span class="str">"llama3.2"</span>, temperature=<span class="num">0</span>, streaming=<span class="dec">True</span>)
+
+streaming_chain = (
+    <span class="cls">RunnableParallel</span>({
+        <span class="str">"context"</span>:  retriever | <span class="fn">format_docs_with_sources</span>,
+        <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>()
+    })
+    | BASIC_RAG_PROMPT
+    | llm_stream
+    | <span class="cls">StrOutputParser</span>()
+)
+
+<span class="fn">print</span>(<span class="str">"Answer: "</span>, end=<span class="str">""</span>, flush=<span class="dec">True</span>)
+<span class="kw">for</span> chunk <span class="kw">in</span> streaming_chain.stream(<span class="str">"Explain vector databases"</span>):
+    <span class="fn">print</span>(chunk, end=<span class="str">""</span>, flush=<span class="dec">True</span>)
+<span class="fn">print</span>()</pre>
+  </div>
+</div>
+
+<!-- ══════ EVALUATION ══════ -->
+<div class="section" id="section-eval">
+  <div class="sec-title">RAG Evaluation — Measure Quality <span class="tag tag-indigo">ESSENTIAL</span></div>
+  <div class="sec-subtitle">You can't improve what you don't measure. These metrics and tools tell you exactly where your RAG pipeline is failing.</div>
+
+  <div class="callout callout-indigo">
+    <strong>The 4 core RAG metrics:</strong><br>
+    <strong>Faithfulness</strong> — Does the answer match the retrieved context? (no hallucination)<br>
+    <strong>Answer Relevancy</strong> — Does the answer address the actual question?<br>
+    <strong>Context Precision</strong> — Are retrieved chunks actually relevant to the question?<br>
+    <strong>Context Recall</strong> — Did we retrieve all chunks needed to answer correctly?
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">evaluation.py — manual + RAGAS automated evaluation</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># pip install ragas datasets</span>
+<span class="kw">from</span> <span class="imp">ragas</span> <span class="kw">import</span> evaluate
+<span class="kw">from</span> <span class="imp">ragas.metrics</span> <span class="kw">import</span> faithfulness, answer_relevancy, context_precision, context_recall
+<span class="kw">from</span> <span class="imp">datasets</span> <span class="kw">import</span> <span class="cls">Dataset</span>
+
+<span class="cm"># ── Build an evaluation dataset ───────────────────────
+# You need: question, answer, contexts (retrieved), ground_truth</span>
+
+eval_data = {
+    <span class="str">"question"</span>: [
+        <span class="str">"What is RAG?"</span>,
+        <span class="str">"How does HNSW work?"</span>,
+    ],
+    <span class="str">"answer"</span>: [
+        rag_chain.invoke(<span class="str">"What is RAG?"</span>),
+        rag_chain.invoke(<span class="str">"How does HNSW work?"</span>),
+    ],
+    <span class="str">"contexts"</span>: [
+        [d.page_content <span class="kw">for</span> d <span class="kw">in</span> retriever.invoke(<span class="str">"What is RAG?"</span>)],
+        [d.page_content <span class="kw">for</span> d <span class="kw">in</span> retriever.invoke(<span class="str">"How does HNSW work?"</span>)],
+    ],
+    <span class="str">"ground_truth"</span>: [
+        <span class="str">"RAG stands for Retrieval Augmented Generation..."</span>,  <span class="cm"># your expected answer</span>
+        <span class="str">"HNSW builds a hierarchical graph of vectors..."</span>,
+    ]
+}
+
+dataset = <span class="cls">Dataset</span>.from_dict(eval_data)
+
+<span class="cm"># Run evaluation</span>
+scores = evaluate(
+    dataset=dataset,
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall]
+)
+<span class="fn">print</span>(scores.to_pandas())
+
+<span class="cm"># ── Manual quick eval (no API needed) ─────────────────</span>
+<span class="kw">def</span> <span class="fn">quick_eval</span>(query: <span class="fn">str</span>, answer: <span class="fn">str</span>, docs):
+    <span class="str">"""Simple manual checks before RAGAS."""</span>
+    <span class="fn">print</span>(<span class="str">f"\nQuery    : {query}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Answer   : {answer[:200]}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Sources  : {[d.metadata.get('source','?') for d in docs]}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Chunks   : {len(docs)} retrieved"</span>)
+    <span class="fn">print</span>(<span class="str">f"Avg chunk: {sum(len(d.page_content) for d in docs)//len(docs)} chars"</span>)
+    <span class="fn">print</span>(<span class="str">f"Hallucination check: Does answer appear in any chunk? "</span>
+          + (<span class="str">"YES ✓"</span> <span class="kw">if</span> <span class="fn">any</span>(answer[:<span class="num">50</span>] <span class="kw">in</span> d.page_content <span class="kw">for</span> d <span class="kw">in</span> docs) <span class="kw">else</span> <span class="str">"CHECK MANUALLY"</span>))
+
+<span class="cm"># ── Retrieval metrics ─────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">measure_retrieval</span>(queries: <span class="fn">list</span>[<span class="fn">str</span>], relevant_docs: <span class="fn">dict</span>, k=<span class="num">5</span>):
+    <span class="str">"""Hit rate: how often does top-k contain the relevant doc?"""</span>
+    hits = <span class="num">0</span>
+    <span class="kw">for</span> query <span class="kw">in</span> queries:
+        retrieved = [d.metadata[<span class="str">'source'</span>] <span class="kw">for</span> d <span class="kw">in</span> retriever.invoke(query)]
+        expected = relevant_docs.get(query, [])
+        <span class="kw">if</span> <span class="fn">any</span>(e <span class="kw">in</span> retrieved <span class="kw">for</span> e <span class="kw">in</span> expected):
+            hits += <span class="num">1</span>
+    <span class="fn">print</span>(<span class="str">f"Hit Rate @{k}: {hits/len(queries):.1%} ({hits}/{len(queries)})"</span>)</pre>
+  </div>
+</div>
+
+<!-- ══════ FULL E2E PIPELINE ══════ -->
+<div class="section" id="section-pipeline">
+  <div class="sec-title">Complete End-to-End RAG Pipeline <span class="tag tag-green">MASTER FILE</span></div>
+  <div class="sec-subtitle">One runnable file that chains all 6 stages together. This is your definitive RAG reference — save it, run it, extend it.</div>
+
+  <div class="callout callout-green">
+    <strong>This is the file that ties everything together.</strong> Run this on your virtual desktop with a <code>data/</code> folder of documents and a local Ollama model. You'll have a fully working RAG system end-to-end.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">rag_pipeline_complete.py — ALL 6 STAGES, production-ready</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="str">"""
+COMPLETE RAG PIPELINE — All 6 Stages
+=====================================
+Stage 1: Ingest documents (PDF, images, CSV, text, HTML)
+Stage 2: Chunk documents (recursive, markdown, sentence-aware)
+Stage 3: Embed chunks (local HuggingFace or Ollama)
+Stage 4: Vector store (ChromaDB local, persistent)
+Stage 5: Retrieve relevant chunks (MMR + metadata filter)
+Stage 6: Generate answer (local Ollama LLM)
+
+Requirements:
+  pip install langchain langchain-community langchain-chroma
+              langchain-huggingface langchain-ollama
+              pymupdf pdfplumber pytesseract pillow
+              pandas sentence-transformers chromadb
+
+  ollama pull llama3.2
+  ollama pull nomic-embed-text
+"""</span>
+
+<span class="kw">import</span> <span class="imp">os</span>, <span class="imp">sys</span>
+<span class="kw">from</span> <span class="imp">pathlib</span> <span class="kw">import</span> <span class="cls">Path</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">langchain.prompts</span> <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="kw">from</span> <span class="imp">langchain.schema.runnable</span> <span class="kw">import</span> <span class="cls">RunnablePassthrough</span>, <span class="cls">RunnableParallel</span>
+<span class="kw">from</span> <span class="imp">langchain.schema.output_parser</span> <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# CONFIGURATION
+# ══════════════════════════════════════════════════════</span>
+CONFIG = {
+    <span class="str">"data_folder"</span>:    <span class="str">"./data"</span>,
+    <span class="str">"vector_db_path"</span>: <span class="str">"./chroma_rag_db"</span>,
+    <span class="str">"collection"</span>:     <span class="str">"rag_complete"</span>,
+    <span class="str">"embed_model"</span>:    <span class="str">"nomic-embed-text"</span>,   <span class="cm"># Ollama embedding</span>
+    <span class="str">"llm_model"</span>:      <span class="str">"llama3.2"</span>,           <span class="cm"># Ollama LLM</span>
+    <span class="str">"chunk_size"</span>:     <span class="num">1000</span>,
+    <span class="str">"chunk_overlap"</span>:  <span class="num">150</span>,
+    <span class="str">"top_k"</span>:          <span class="num">5</span>,
+    <span class="str">"rebuild_index"</span>:  <span class="dec">False</span>,   <span class="cm"># True = re-embed everything</span>
+}
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# STAGE 1: INGESTION
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">stage1_ingest</span>(folder: <span class="fn">str</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="fn">print</span>(<span class="str">f"\n[Stage 1] Ingesting from: {folder}"</span>)
+    <span class="kw">from</span> <span class="imp">langchain_community.document_loaders</span> <span class="kw">import</span> (
+        <span class="cls">PyMuPDFLoader</span>, <span class="cls">CSVLoader</span>, <span class="cls">TextLoader</span>,
+        <span class="cls">BSHTMLLoader</span>, <span class="cls">UnstructuredMarkdownLoader</span>, <span class="cls">DirectoryLoader</span>
+    )
+    <span class="kw">import</span> <span class="imp">pandas</span> <span class="kw">as</span> pd
+
+    all_docs = []
+    p = <span class="cls">Path</span>(folder)
+
+    loaders = [
+        (<span class="str">"*.pdf"</span>,   <span class="cls">PyMuPDFLoader</span>,              <span class="str">"pdf"</span>),
+        (<span class="str">"*.txt"</span>,   <span class="cls">TextLoader</span>,                 <span class="str">"txt"</span>),
+        (<span class="str">"*.md"</span>,    <span class="cls">UnstructuredMarkdownLoader</span>,  <span class="str">"markdown"</span>),
+        (<span class="str">"*.html"</span>,  <span class="cls">BSHTMLLoader</span>,               <span class="str">"html"</span>),
+    ]
+    <span class="kw">for</span> glob, cls, dtype <span class="kw">in</span> loaders:
+        <span class="kw">for</span> f <span class="kw">in</span> p.glob(glob):
+            <span class="kw">try</span>:
+                docs = cls(<span class="fn">str</span>(f)).load()
+                <span class="kw">for</span> d <span class="kw">in</span> docs: d.metadata[<span class="str">"data_type"</span>] = dtype
+                all_docs.extend(docs)
+                <span class="fn">print</span>(<span class="str">f"  [{dtype}] {f.name} → {len(docs)} docs"</span>)
+            <span class="kw">except</span> <span class="cls">Exception</span> <span class="kw">as</span> e:
+                <span class="fn">print</span>(<span class="str">f"  ERROR {f.name}: {e}"</span>)
+
+    <span class="kw">for</span> f <span class="kw">in</span> p.glob(<span class="str">"*.csv"</span>):
+        <span class="kw">try</span>:
+            df = pd.read_csv(f)
+            <span class="kw">for</span> idx, row <span class="kw">in</span> df.iterrows():
+                all_docs.append(<span class="cls">Document</span>(
+                    page_content=row.to_string(),
+                    metadata={<span class="str">"source"</span>: <span class="fn">str</span>(f), <span class="str">"data_type"</span>: <span class="str">"csv"</span>, <span class="str">"row"</span>: idx}
+                ))
+            <span class="fn">print</span>(<span class="str">f"  [csv] {f.name} → {len(df)} rows"</span>)
+        <span class="kw">except</span> <span class="cls">Exception</span> <span class="kw">as</span> e:
+            <span class="fn">print</span>(<span class="str">f"  ERROR {f.name}: {e}"</span>)
+
+    <span class="fn">print</span>(<span class="str">f"[Stage 1] ✅ {len(all_docs)} documents ingested"</span>)
+    <span class="kw">return</span> all_docs
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# STAGE 2: CHUNKING
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">stage2_chunk</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="fn">print</span>(<span class="str">f"\n[Stage 2] Chunking {len(docs)} documents..."</span>)
+    <span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> (
+        <span class="cls">RecursiveCharacterTextSplitter</span>, <span class="cls">MarkdownHeaderTextSplitter</span>
+    )
+
+    pdf_txt_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+        chunk_size=CONFIG[<span class="str">"chunk_size"</span>],
+        chunk_overlap=CONFIG[<span class="str">"chunk_overlap"</span>],
+        separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>],
+        add_start_index=<span class="dec">True</span>
+    )
+    md_header_splitter = <span class="cls">MarkdownHeaderTextSplitter</span>(
+        headers_to_split_on=[(<span class="str">"#"</span>,<span class="str">"H1"</span>),(<span class="str">"##"</span>,<span class="str">"H2"</span>),(<span class="str">"###"</span>,<span class="str">"H3"</span>)]
+    )
+    md_sub = <span class="cls">RecursiveCharacterTextSplitter</span>(chunk_size=<span class="num">800</span>, chunk_overlap=<span class="num">100</span>)
+
+    chunks, buckets = [], {<span class="str">"text"</span>:[], <span class="str">"md"</span>:[], <span class="str">"pass"</span>:[]}
+    <span class="kw">for</span> d <span class="kw">in</span> docs:
+        dt = d.metadata.get(<span class="str">"data_type"</span>,<span class="str">""</span>)
+        <span class="kw">if</span> dt <span class="kw">in</span> (<span class="str">"pdf"</span>,<span class="str">"txt"</span>,<span class="str">"html"</span>): buckets[<span class="str">"text"</span>].append(d)
+        <span class="kw">elif</span> dt == <span class="str">"markdown"</span>:           buckets[<span class="str">"md"</span>].append(d)
+        <span class="kw">else</span>:                           buckets[<span class="str">"pass"</span>].append(d)
+
+    chunks.extend(pdf_txt_splitter.split_documents(buckets[<span class="str">"text"</span>]))
+    <span class="kw">for</span> d <span class="kw">in</span> buckets[<span class="str">"md"</span>]:
+        splits = md_header_splitter.split_text(d.page_content)
+        <span class="kw">for</span> s <span class="kw">in</span> splits: s.metadata.update(d.metadata)
+        chunks.extend(md_sub.split_documents(splits))
+    chunks.extend(buckets[<span class="str">"pass"</span>])
+
+    chunks = [c <span class="kw">for</span> c <span class="kw">in</span> chunks <span class="kw">if</span> c.page_content.strip()]
+    <span class="fn">print</span>(<span class="str">f"[Stage 2] ✅ {len(chunks)} chunks created"</span>)
+    <span class="kw">return</span> chunks
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# STAGE 3 + 4: EMBED + VECTOR STORE
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">stage34_embed_and_store</span>(chunks, rebuild=<span class="dec">False</span>):
+    <span class="fn">print</span>(<span class="str">f"\n[Stage 3+4] Embedding + Vector Store..."</span>)
+    <span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">OllamaEmbeddings</span>
+    <span class="kw">from</span> <span class="imp">langchain_chroma</span> <span class="kw">import</span> <span class="cls">Chroma</span>
+
+    embeddings = <span class="cls">OllamaEmbeddings</span>(model=CONFIG[<span class="str">"embed_model"</span>])
+    db_path = CONFIG[<span class="str">"vector_db_path"</span>]
+    col     = CONFIG[<span class="str">"collection"</span>]
+
+    <span class="kw">if</span> rebuild <span class="kw">or</span> <span class="kw">not</span> <span class="cls">Path</span>(db_path).exists():
+        <span class="fn">print</span>(<span class="str">f"  Building new index ({len(chunks)} chunks)..."</span>)
+        vs = <span class="cls">Chroma</span>.from_documents(
+            documents=chunks, embedding=embeddings,
+            persist_directory=db_path, collection_name=col
+        )
+        <span class="fn">print</span>(<span class="str">f"[Stage 3+4] ✅ {vs._collection.count()} vectors stored"</span>)
+    <span class="kw">else</span>:
+        vs = <span class="cls">Chroma</span>(persist_directory=db_path,
+                     embedding_function=embeddings, collection_name=col)
+        <span class="fn">print</span>(<span class="str">f"[Stage 3+4] ✅ Loaded {vs._collection.count()} existing vectors"</span>)
+    <span class="kw">return</span> vs
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# STAGE 5: RETRIEVER
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">stage5_retriever</span>(vectorstore):
+    <span class="fn">print</span>(<span class="str">f"\n[Stage 5] Building retriever (MMR, k={CONFIG['top_k']})..."</span>)
+    retriever = vectorstore.as_retriever(
+        search_type=<span class="str">"mmr"</span>,
+        search_kwargs={<span class="str">"k"</span>: CONFIG[<span class="str">"top_k"</span>], <span class="str">"fetch_k"</span>: CONFIG[<span class="str">"top_k"</span>] * <span class="num">3</span>}
+    )
+    <span class="fn">print</span>(<span class="str">f"[Stage 5] ✅ MMR retriever ready"</span>)
+    <span class="kw">return</span> retriever
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# STAGE 6: LLM + RAG CHAIN
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">stage6_build_chain</span>(retriever):
+    <span class="fn">print</span>(<span class="str">f"\n[Stage 6] Loading LLM: {CONFIG['llm_model']}..."</span>)
+    <span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">ChatOllama</span>
+
+    llm = <span class="cls">ChatOllama</span>(model=CONFIG[<span class="str">"llm_model"</span>], temperature=<span class="num">0</span>, num_ctx=<span class="num">4096</span>)
+
+    prompt = <span class="cls">ChatPromptTemplate</span>.from_messages([
+        (<span class="str">"system"</span>, <span class="str">"""You are a helpful AI assistant with access to a document database.
+Answer questions using ONLY the provided context.
+If the context doesn't contain the answer, say: "I don't have enough information in my documents to answer this."
+Be accurate, concise, and cite the source when possible."""</span>),
+        (<span class="str">"human"</span>, <span class="str">"Context:\n{context}\n\nQuestion: {question}"</span>)
+    ])
+
+    <span class="kw">def</span> <span class="fn">fmt</span>(docs):
+        <span class="kw">return</span> <span class="str">"\n\n---\n"</span>.join([
+            <span class="str">f"[Source: {d.metadata.get('source','?')}]\n{d.page_content}"</span>
+            <span class="kw">for</span> d <span class="kw">in</span> docs
+        ])
+
+    chain = (
+        <span class="cls">RunnableParallel</span>({<span class="str">"context"</span>: retriever | fmt, <span class="str">"question"</span>: <span class="cls">RunnablePassthrough</span>()})
+        | prompt | llm | <span class="cls">StrOutputParser</span>()
+    )
+    <span class="fn">print</span>(<span class="str">f"[Stage 6] ✅ RAG chain ready"</span>)
+    <span class="kw">return</span> chain, retriever
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# INTERACTIVE Q&A LOOP
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">def</span> <span class="fn">interactive_qa</span>(chain, retriever):
+    <span class="fn">print</span>(<span class="str">"\n" + "="*56</span>)
+    <span class="fn">print</span>(<span class="str">"  RAG Pipeline Ready — Ask your documents anything!"</span>)
+    <span class="fn">print</span>(<span class="str">"  Type 'quit' to exit | 'sources' to see last sources"</span>)
+    <span class="fn">print</span>(<span class="str">"="*56 + "\n"</span>)
+
+    last_docs = []
+    <span class="kw">while</span> <span class="dec">True</span>:
+        <span class="kw">try</span>:
+            q = <span class="fn">input</span>(<span class="str">"You: "</span>).strip()
+            <span class="kw">if</span> <span class="kw">not</span> q: <span class="kw">continue</span>
+            <span class="kw">if</span> q.lower() == <span class="str">"quit"</span>: <span class="fn">print</span>(<span class="str">"Goodbye!"</span>); <span class="kw">break</span>
+            <span class="kw">if</span> q.lower() == <span class="str">"sources"</span>:
+                <span class="fn">print</span>(<span class="str">"Sources from last query:"</span>)
+                <span class="kw">for</span> d <span class="kw">in</span> last_docs:
+                    <span class="fn">print</span>(<span class="str">f"  - {d.metadata.get('source','?')} (p.{d.metadata.get('page','-')})"</span>)
+                <span class="kw">continue</span>
+
+            last_docs = retriever.invoke(q)
+            <span class="fn">print</span>(<span class="str">f"\nAssistant: "</span>, end=<span class="str">""</span>, flush=<span class="dec">True</span>)
+            <span class="kw">for</span> chunk <span class="kw">in</span> chain.stream(q):
+                <span class="fn">print</span>(chunk, end=<span class="str">""</span>, flush=<span class="dec">True</span>)
+            <span class="fn">print</span>(<span class="str">f"\n[Retrieved {len(last_docs)} chunks | type 'sources' to see them]\n"</span>)
+
+        <span class="kw">except</span> <span class="cls">KeyboardInterrupt</span>:
+            <span class="fn">print</span>(<span class="str">"\nGoodbye!"</span>); <span class="kw">break</span>
+
+
+<span class="cm"># ══════════════════════════════════════════════════════
+# MAIN ENTRY POINT
+# ══════════════════════════════════════════════════════</span>
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    rebuild = <span class="str">"--rebuild"</span> <span class="kw">in</span> sys.argv
+    CONFIG[<span class="str">"rebuild_index"</span>] = rebuild
+
+    <span class="fn">print</span>(<span class="str">"╔══════════════════════════════════════════╗"</span>)
+    <span class="fn">print</span>(<span class="str">"║     COMPLETE RAG PIPELINE — 6 STAGES     ║"</span>)
+    <span class="fn">print</span>(<span class="str">"╚══════════════════════════════════════════╝"</span>)
+
+    stage1_docs   = <span class="fn">stage1_ingest</span>(CONFIG[<span class="str">"data_folder"</span>])
+    stage2_chunks = <span class="fn">stage2_chunk</span>(stage1_docs)
+    vectorstore   = <span class="fn">stage34_embed_and_store</span>(stage2_chunks, rebuild=rebuild)
+    retriever     = <span class="fn">stage5_retriever</span>(vectorstore)
+    chain, ret    = <span class="fn">stage6_build_chain</span>(retriever)
+
+    <span class="fn">interactive_qa</span>(chain, ret)
+
+<span class="cm"># ── Usage ─────────────────────────────────────────────
+# First run (build index):
+#   python rag_pipeline_complete.py --rebuild
+#
+# Subsequent runs (load existing index, fast startup):
+#   python rag_pipeline_complete.py
+#
+# Ask anything about your documents in real-time!</span></pre>
+  </div>
+
+  <div class="summary">
+    <h4>Your Complete RAG Study Checklist</h4>
+    <div class="summary-row"><span class="lbl">Week 1 — Stage 1+2</span><span class="val">Ingest + chunk your own documents</span></div>
+    <div class="summary-row"><span class="lbl">Week 2 — Stage 3</span><span class="val">Embed with BGE-small, compare with nomic via Ollama</span></div>
+    <div class="summary-row"><span class="lbl">Week 3 — Stage 4</span><span class="val">Build ChromaDB, test metadata filtering</span></div>
+    <div class="summary-row"><span class="lbl">Week 4 — Stage 5</span><span class="val">Compare similarity vs MMR vs reranking retrieval</span></div>
+    <div class="summary-row"><span class="lbl">Week 5 — Stage 6</span><span class="val">Run full pipeline with llama3.2 locally</span></div>
+    <div class="summary-row"><span class="lbl">Week 6 — Evaluation</span><span class="val">Measure faithfulness + context precision with RAGAS</span></div>
+    <div class="summary-row"><span class="lbl">Week 7 — Advanced</span><span class="val">Add multi-query, HyDE, conversational memory</span></div>
+    <div class="summary-row"><span class="lbl">Master checkpoint</span><span class="val">Build a RAG system on your own domain data, end-to-end</span></div>
+  </div>
+
+  <div class="callout callout-orange" style="margin-top:24px">
+    <strong>You now have all 4 notebooks:</strong> Stage 1 (Ingestion) · Stage 2 (Chunking) · Stage 3 (Embeddings) · Stage 4 (Vector Store) · Stage 5+6 (Retrieval + LLM). Run <code>rag_pipeline_complete.py</code> to tie all 6 stages together. Drop documents into <code>data/</code>, run with <code>--rebuild</code> flag first, then ask questions interactively. That is a complete, production-grade RAG system.
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<script>
+const TABS=['overview','retrieval','advanced-ret','llms','ollama','api-llms','prompts','chains','eval','pipeline'];
+function showTab(name){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  const idx=TABS.indexOf(name);
+  const tabs=document.querySelectorAll('.nav-tab');
+  if(tabs[idx])tabs[idx].classList.add('active');
+}
+function copyCode(btn){
+  const pre=btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(()=>{
+    btn.textContent='copied ✓';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},2000);
+  });
+}
+</script>
+</body>
+</html>

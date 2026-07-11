@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAG Stage 3 — Embedding Masterclass</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0b0d18; --surface:#11141f; --surface2:#181c2c; --surface3:#1e2338;
+    --border:#252c42; --accent:#a78bfa; --accent2:#38d9a9; --accent3:#f59e0b;
+    --accent4:#f472b6; --accent5:#60a5fa; --text:#cdd4e8; --muted:#5a6280;
+    --code-bg:#080a12; --white:#eef1fa;
+    --free:#34d399; --paid:#f59e0b; --local:#60a5fa;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.75;}
+
+  /* HEADER */
+  .header{padding:52px 44px 36px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;background:var(--bg);}
+  .header::after{content:'';position:absolute;top:-80px;right:-60px;width:420px;height:420px;background:radial-gradient(circle,rgba(167,139,250,.1) 0%,transparent 70%);pointer-events:none;}
+  .header::before{content:'';position:absolute;bottom:-50px;left:300px;width:300px;height:300px;background:radial-gradient(circle,rgba(56,217,169,.07) 0%,transparent 70%);pointer-events:none;}
+  .stage-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 14px;border-radius:20px;margin-bottom:18px;letter-spacing:1.2px;}
+  .header h1{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--white);letter-spacing:-1.5px;margin-bottom:10px;}
+  .header h1 em{color:var(--accent);font-style:normal;}
+  .header p{color:var(--muted);font-size:14.5px;max-width:620px;font-weight:300;}
+  .header-meta{display:flex;gap:16px;margin-top:20px;flex-wrap:wrap;}
+  .meta-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--muted);}
+  .meta-pill span{color:var(--white);font-weight:500;}
+
+  /* NAV */
+  .nav{display:flex;padding:0 44px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;position:sticky;top:0;z-index:100;}
+  .nav-tab{padding:14px 17px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:7px;user-select:none;}
+  .nav-tab:hover{color:var(--text);}
+  .nav-tab.active{color:var(--white);border-bottom-color:var(--accent);}
+  .nav-tab .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+  /* CONTENT */
+  .content{padding:44px;max-width:940px;}
+  .section{display:none;}
+  .section.active{display:block;animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  /* TYPOGRAPHY */
+  .sec-title{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--white);margin-bottom:8px;letter-spacing:-.5px;display:flex;align-items:center;gap:12px;}
+  .sec-subtitle{color:var(--muted);font-size:14px;margin-bottom:30px;}
+  h3{font-family:'Syne',sans-serif;font-size:15.5px;font-weight:700;color:var(--white);margin:32px 0 12px;display:flex;align-items:center;gap:10px;}
+  .divider{height:1px;background:var(--border);margin:36px 0;}
+
+  /* TAGS */
+  .tag{display:inline-block;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.6px;font-family:'JetBrains Mono',monospace;}
+  .tag-free{background:rgba(52,211,153,.12);color:#6ee7b7;border:1px solid rgba(52,211,153,.3);}
+  .tag-paid{background:rgba(245,158,11,.12);color:#fcd34d;border:1px solid rgba(245,158,11,.3);}
+  .tag-local{background:rgba(96,165,250,.12);color:#93c5fd;border:1px solid rgba(96,165,250,.3);}
+  .tag-purple{background:rgba(167,139,250,.12);color:#c4b5fd;border:1px solid rgba(167,139,250,.3);}
+  .tag-pink{background:rgba(244,114,182,.12);color:#f9a8d4;border:1px solid rgba(244,114,182,.3);}
+  .tag-green{background:rgba(56,217,169,.12);color:#6ee7c5;border:1px solid rgba(56,217,169,.3);}
+
+  /* CODE BLOCKS */
+  .code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:18px 0;}
+  .code-header{background:var(--surface2);padding:10px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+  .code-header .fname{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+  .code-header .flang{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);}
+  .copy-btn{background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);color:var(--accent);font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .2s;}
+  .copy-btn:hover{background:rgba(167,139,250,.2);}
+  .copy-btn.copied{color:var(--accent2);border-color:rgba(56,217,169,.4);}
+  pre{padding:22px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.85;color:#bac4da;}
+  .kw{color:#c792ea;} .fn{color:#82aaff;} .str{color:#c3e88d;} .cm{color:#3d4f6b;font-style:italic;}
+  .imp{color:#ffcb6b;} .num{color:#f78c6c;} .cls{color:#ffcb6b;} .dec{color:#89ddff;} .op{color:#89ddff;}
+
+  /* CALLOUTS */
+  .callout{padding:16px 20px;border-radius:10px;margin:18px 0;border-left:3px solid;font-size:13.5px;}
+  .callout-purple{background:rgba(167,139,250,.07);border-color:var(--accent);color:#c4b5fd;}
+  .callout-green{background:rgba(56,217,169,.07);border-color:var(--accent2);color:#90ddc6;}
+  .callout-amber{background:rgba(245,158,11,.07);border-color:var(--accent3);color:#d4b87a;}
+  .callout-blue{background:rgba(96,165,250,.07);border-color:var(--accent5);color:#93c5fd;}
+  .callout-pink{background:rgba(244,114,182,.07);border-color:var(--accent4);color:#f9a8d4;}
+  .callout strong{color:var(--white);}
+  .callout code{font-family:'JetBrains Mono',monospace;font-size:12px;color:#c3e88d;}
+
+  /* MODEL CARDS */
+  .model-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;}
+  .model-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;border-top:3px solid transparent;transition:all .2s;}
+  .model-card:hover{transform:translateY(-2px);border-top-color:var(--accent);}
+  .model-card.free{border-top-color:var(--free);}
+  .model-card.paid-card{border-top-color:var(--paid);}
+  .model-card.local{border-top-color:var(--local);}
+  .mc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+  .mc-name{font-family:'Syne',sans-serif;font-size:14.5px;font-weight:700;color:var(--white);}
+  .mc-provider{font-size:11px;color:var(--muted);margin-top:2px;}
+  .mc-body{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+  .mc-stats{display:flex;gap:8px;flex-wrap:wrap;}
+  .mc-stat{background:var(--surface2);border:1px solid var(--border);padding:3px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text);}
+  .mc-stat .lbl{color:var(--muted);font-size:9.5px;display:block;}
+
+  /* COMPARISON TABLE */
+  .comp-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:16px 0;}
+  .comp-table th{text-align:left;padding:10px 14px;background:var(--surface2);color:var(--muted);font-weight:500;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .comp-table td{padding:10px 14px;border-bottom:1px solid rgba(37,44,66,.6);vertical-align:middle;}
+  .comp-table tr:hover td{background:rgba(255,255,255,.015);}
+  .comp-table code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(167,139,250,.08);padding:1px 6px;border-radius:3px;}
+  .price-free{color:var(--free);font-weight:600;font-size:11.5px;}
+  .price-paid{color:var(--paid);font-weight:600;font-size:11.5px;}
+  .mteb{color:var(--white);font-family:'JetBrains Mono',monospace;font-size:12px;}
+
+  /* FLOW STEPS */
+  .flow-steps{margin:22px 0;}
+  .flow-step{display:flex;gap:16px;margin-bottom:14px;align-items:flex-start;}
+  .step-num{width:28px;height:28px;border-radius:50%;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);color:var(--accent);font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .step-body strong{color:var(--white);font-size:14px;}
+  .step-body p{color:var(--muted);font-size:12.5px;margin-top:2px;}
+
+  /* DECISION TREE */
+  .dtree{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0;}
+  .dtree-q{background:var(--surface2);border:1px solid rgba(167,139,250,.25);color:var(--accent);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:14px;}
+  .dtree-row{display:flex;gap:10px;margin-bottom:10px;padding-left:16px;align-items:flex-start;}
+  .dtree-cond{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent3);white-space:nowrap;background:rgba(245,158,11,.08);padding:2px 8px;border-radius:4px;margin-top:2px;}
+  .dtree-result{font-size:13px;color:var(--text);}
+  .dtree-result strong{color:var(--accent2);}
+
+  /* VECTOR VIS */
+  .vec-vis{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:20px;margin:18px 0;font-family:'JetBrains Mono',monospace;font-size:12px;}
+  .vec-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .vec-label{width:180px;color:var(--muted);flex-shrink:0;font-size:11.5px;}
+  .vec-bars{display:flex;gap:3px;flex:1;height:24px;align-items:center;}
+  .vec-bar{height:100%;border-radius:2px;min-width:4px;}
+  .vec-sim{width:60px;text-align:right;flex-shrink:0;font-size:11px;}
+
+  /* SUMMARY */
+  .summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:28px;}
+  .summary h4{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--white);margin-bottom:16px;}
+  .summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(37,44,66,.5);font-size:13px;}
+  .summary-row:last-child{border-bottom:none;}
+  .summary-row .lbl{color:var(--muted);}
+  .summary-row .val{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--accent);}
+
+  /* TIER BANNER */
+  .tier-banner{padding:14px 20px;border-radius:10px;margin:14px 0;display:flex;align-items:center;gap:14px;font-size:13.5px;}
+  .tier-banner-free{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);}
+  .tier-banner-paid{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);}
+  .tier-banner-local{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);}
+  .tier-icon{font-size:22px;}
+  .tier-text strong{color:var(--white);display:block;font-size:14px;margin-bottom:2px;}
+  .tier-text span{color:var(--muted);font-size:12.5px;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="stage-badge">◆ RAG PIPELINE · STAGE 3 OF 6</div>
+  <h1>Embedding <em>Masterclass</em></h1>
+  <p>What embeddings are, every free and paid model available in 2025–26, how to choose the right one, and full LangChain code for all providers — local, API, and cloud.</p>
+  <div class="header-meta">
+    <div class="meta-pill">Input: <span>list[Document] chunks</span></div>
+    <div class="meta-pill">Output: <span>float vectors (embeddings)</span></div>
+    <div class="meta-pill">Free models: <span>10+ covered</span></div>
+    <div class="meta-pill">Paid APIs: <span>OpenAI · Cohere · Voyage · Google</span></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showTab('concept')"><div class="dot" style="background:#a78bfa"></div>What are Embeddings?</div>
+  <div class="nav-tab" onclick="showTab('free')"><div class="dot" style="background:#34d399"></div>Free / Local Models</div>
+  <div class="nav-tab" onclick="showTab('paid')"><div class="dot" style="background:#f59e0b"></div>Paid API Models</div>
+  <div class="nav-tab" onclick="showTab('compare')"><div class="dot" style="background:#60a5fa"></div>Model Comparison</div>
+  <div class="nav-tab" onclick="showTab('choose')"><div class="dot" style="background:#f472b6"></div>How to Choose</div>
+  <div class="nav-tab" onclick="showTab('setup')"><div class="dot" style="background:#a78bfa"></div>Setup &amp; Install</div>
+  <div class="nav-tab" onclick="showTab('local-code')"><div class="dot" style="background:#34d399"></div>Local Code</div>
+  <div class="nav-tab" onclick="showTab('api-code')"><div class="dot" style="background:#f59e0b"></div>API Code</div>
+  <div class="nav-tab" onclick="showTab('ollama')"><div class="dot" style="background:#60a5fa"></div>Ollama (Offline)</div>
+  <div class="nav-tab" onclick="showTab('batch')"><div class="dot" style="background:#f472b6"></div>Batch &amp; Cache</div>
+  <div class="nav-tab" onclick="showTab('pipeline')"><div class="dot" style="background:#a78bfa"></div>Full Pipeline</div>
+</div>
+
+<div class="content">
+
+<!-- ══════════════ WHAT ARE EMBEDDINGS ══════════════ -->
+<div class="section active" id="section-concept">
+  <div class="sec-title">What are Embeddings? <span class="tag tag-purple">START HERE</span></div>
+  <div class="sec-subtitle">The core concept you must understand before writing a single line of embedding code.</div>
+
+  <div class="callout callout-purple">
+    <strong>One-line definition:</strong> An embedding model converts a piece of text into a list of numbers (a vector) — such that texts with <em>similar meaning</em> produce <em>similar numbers</em>. That's it.
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Text goes in</strong><p>"The weather in Bhubaneswar is hot and humid in summer"</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Embedding model processes it</strong><p>A neural network (transformer) encodes the semantic meaning of the sentence.</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>A vector comes out</strong><p>[0.021, -0.134, 0.876, 0.003, ...] — typically 384 to 3072 numbers long.</p></div></div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-body"><strong>Similar text → similar vectors</strong><p>"Bhubaneswar gets very warm and moist in June" → nearly the same numbers. That's semantic similarity.</p></div></div>
+    <div class="flow-step"><div class="step-num">5</div><div class="step-body"><strong>Stored in a vector database</strong><p>These vectors for all your chunks are stored. At query time, the query is also embedded and the closest vectors are found — that's retrieval.</p></div></div>
+  </div>
+
+  <h3>Visual — similarity in vector space</h3>
+  <div class="vec-vis">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Each bar = one dimension of the embedding vector. Visually similar bar patterns = semantically similar text.</div>
+    <div class="vec-row">
+      <div class="vec-label" style="color:var(--accent2)">Query: "What is RAG?"</div>
+      <div class="vec-bars" id="bars-q"></div>
+      <div class="vec-sim" style="color:var(--accent2)">← query</div>
+    </div>
+    <div class="vec-row">
+      <div class="vec-label">Chunk A: "RAG stands for Retrieval Augmented Generation..."</div>
+      <div class="vec-bars" id="bars-a"></div>
+      <div class="vec-sim" style="color:var(--free)">0.96 ✓</div>
+    </div>
+    <div class="vec-row">
+      <div class="vec-label">Chunk B: "Vector databases store embeddings for fast retrieval..."</div>
+      <div class="vec-bars" id="bars-b"></div>
+      <div class="vec-sim" style="color:var(--accent3)">0.71</div>
+    </div>
+    <div class="vec-row">
+      <div class="vec-label">Chunk C: "The capital of France is Paris..."</div>
+      <div class="vec-bars" id="bars-c"></div>
+      <div class="vec-sim" style="color:var(--muted)">0.14 ✗</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">concept_demo.py — see embeddings in action</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">sentence_transformers</span> <span class="kw">import</span> <span class="cls">SentenceTransformer</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+
+model = <span class="cls">SentenceTransformer</span>(<span class="str">"all-MiniLM-L6-v2"</span>)
+
+texts = [
+    <span class="str">"What is retrieval augmented generation?"</span>,   <span class="cm"># query</span>
+    <span class="str">"RAG combines retrieval with language generation"</span>, <span class="cm"># relevant</span>
+    <span class="str">"The sky is blue on a clear day"</span>,             <span class="cm"># unrelated</span>
+]
+
+embeddings = model.encode(texts)
+
+<span class="fn">print</span>(<span class="str">f"Vector shape: {embeddings.shape}"</span>)
+<span class="cm"># Output: (3, 384)  ← 3 texts, each = 384-dim vector</span>
+
+<span class="cm"># Cosine similarity between query and each text</span>
+<span class="kw">def</span> <span class="fn">cosine_similarity</span>(a, b):
+    <span class="kw">return</span> np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+query_emb = embeddings[<span class="num">0</span>]
+<span class="kw">for</span> i, text <span class="kw">in</span> <span class="fn">enumerate</span>(texts[<span class="num">1</span>:], <span class="num">1</span>):
+    sim = <span class="fn">cosine_similarity</span>(query_emb, embeddings[i])
+    <span class="fn">print</span>(<span class="str">f"Similarity to '{text[:40]}...': {sim:.4f}"</span>)
+
+<span class="cm"># Output:
+# Similarity to 'RAG combines retrieval with...': 0.8741  ← high = relevant
+# Similarity to 'The sky is blue on a clear...':  0.1023  ← low = unrelated</span>
+
+<span class="cm"># ── Key insight ───────────────────────────────────────
+# In your RAG pipeline:
+# 1. Embed all chunks → store vectors in vector DB
+# 2. Embed user query → compare to stored vectors
+# 3. Top-k closest vectors → these are your context chunks
+# 4. Pass chunks + query to LLM → final answer</span></pre>
+  </div>
+
+  <div class="callout callout-green">
+    <strong>Why this matters for RAG:</strong> The quality of your embedding model directly determines <em>retrieval quality</em>. A bad embedding model finds the wrong chunks. A great one finds the exact right context. Everything else downstream (chunking, vector DB, LLM) depends on this step being correct.
+  </div>
+</div>
+
+<!-- ══════════════ FREE / LOCAL MODELS ══════════════ -->
+<div class="section" id="section-free">
+  <div class="sec-title">Free &amp; Local Embedding Models <span class="tag tag-free">FREE</span></div>
+  <div class="sec-subtitle">Run completely offline on your desktop — no API key, no cost, no data leaving your machine. Ideal for development, experimentation, and privacy-sensitive use cases.</div>
+
+  <div class="tier-banner tier-banner-local">
+    <div class="tier-icon">🖥️</div>
+    <div class="tier-text"><strong>Local / Self-Hosted</strong><span>Download once, run forever. Works offline. Data never leaves your machine. CPU is fine for small workloads; GPU is 10–50× faster for large document sets.</span></div>
+  </div>
+
+  <div class="model-grid">
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">all-MiniLM-L6-v2</div><div class="mc-provider">sentence-transformers / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">The go-to starter model. Fast, small (80MB), runs on CPU. Great for prototyping any RAG pipeline. 256-token limit — chunk accordingly.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>384</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>256</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>80 MB</div>
+        <div class="mc-stat"><span class="lbl">SPEED</span>Fast</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">all-mpnet-base-v2</div><div class="mc-provider">sentence-transformers / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">Higher quality than MiniLM. 768 dims gives better semantic precision. Slower but worth it for production-quality retrieval on a budget.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>768</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>384</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>420 MB</div>
+        <div class="mc-stat"><span class="lbl">SPEED</span>Medium</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">BAAI/bge-small-en-v1.5</div><div class="mc-provider">BAAI / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">Best free model for RAG retrieval. BGE-series beats sentence-transformers on MTEB retrieval benchmarks. Use "Represent this sentence for retrieval" prefix.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>384</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>512</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>133 MB</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>62.1</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">BAAI/bge-large-en-v1.5</div><div class="mc-provider">BAAI / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">Best quality free English model. 1024 dims. Recommended if you have 4GB+ RAM and want production-grade retrieval without paying any API costs.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>512</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>1.3 GB</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>64.2</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">intfloat/e5-base-v2</div><div class="mc-provider">Microsoft / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">Microsoft's E5 model — excellent for passage retrieval. Uses query/passage prefixes to distinguish query vs document embeddings for better retrieval.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>768</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>512</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>438 MB</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>61.5</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">nomic-embed-text</div><div class="mc-provider">Nomic AI / Ollama</div></div>
+        <span class="tag tag-local">OLLAMA</span>
+      </div>
+      <div class="mc-body">Best model for Ollama (fully offline, no Python install needed). 8192 token context — handles very long chunks without truncation. Pull with ollama pull.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>768</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>8192</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>274 MB</div>
+        <div class="mc-stat"><span class="lbl">SETUP</span>1 cmd</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">mxbai-embed-large-v1</div><div class="mc-provider">Mixedbread AI / Ollama</div></div>
+        <span class="tag tag-local">OLLAMA</span>
+      </div>
+      <div class="mc-body">Top-performing Ollama model. State-of-the-art for its size. Excellent for high-quality offline RAG. Beats many paid API models on MTEB retrieval tasks.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>512</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>669 MB</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>64.7</div>
+      </div>
+    </div>
+    <div class="model-card free">
+      <div class="mc-header">
+        <div><div class="mc-name">Snowflake/snowflake-arctic-embed-m</div><div class="mc-provider">Snowflake / HuggingFace</div></div>
+        <span class="tag tag-free">FREE</span>
+      </div>
+      <div class="mc-body">Excellent medium-size model from Snowflake. Strong retrieval performance at 137M parameters. Good balance of speed and quality for RAG pipelines.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>768</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>512</div>
+        <div class="mc-stat"><span class="lbl">SIZE</span>568 MB</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>63.4</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-green">
+    <strong>Recommendation for your virtual desktop:</strong> Start with <code>BAAI/bge-small-en-v1.5</code> — it has the best retrieval quality for its size (133MB, CPU-friendly). For maximum quality offline, use <code>mxbai-embed-large-v1</code> via Ollama.
+  </div>
+</div>
+
+<!-- ══════════════ PAID MODELS ══════════════ -->
+<div class="section" id="section-paid">
+  <div class="sec-title">Paid API Embedding Models <span class="tag tag-paid">PAID</span></div>
+  <div class="sec-subtitle">Cloud-hosted embedding APIs — no local compute needed, cutting-edge quality, pay-per-token. Most have generous free tiers to get started.</div>
+
+  <div class="tier-banner tier-banner-paid">
+    <div class="tier-icon">☁️</div>
+    <div class="tier-text"><strong>API-Based Models</strong><span>Call an endpoint, get vectors back. No GPU needed. Pricing is per million tokens — typically $0.02–$0.18/MTok. Most offer free tiers for experimentation.</span></div>
+  </div>
+
+  <div class="model-grid">
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">text-embedding-3-small</div><div class="mc-provider">OpenAI</div></div>
+        <span class="tag tag-paid">$0.02/MTok</span>
+      </div>
+      <div class="mc-body">The safest default choice. Best ecosystem support, simplest integration, predictable behavior. Matryoshka dims (256–1536). 8,191 token limit. No free tier — pay as you go.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>256–1536</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>8,191</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>62.3</div>
+        <div class="mc-stat"><span class="lbl">ACCESS</span>platform.openai.com</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">text-embedding-3-large</div><div class="mc-provider">OpenAI</div></div>
+        <span class="tag tag-paid">$0.13/MTok</span>
+      </div>
+      <div class="mc-body">Highest quality OpenAI model. 3,072 dims. Matryoshka — truncate to 256 dims for 12x storage saving with minimal quality drop. Best for complex semantic search.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>256–3072</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>8,191</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>64.6</div>
+        <div class="mc-stat"><span class="lbl">BATCH</span>50% off</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">voyage-4-lite</div><div class="mc-provider">Voyage AI (MongoDB)</div></div>
+        <span class="tag tag-paid">$0.02/MTok</span>
+      </div>
+      <div class="mc-body">Best price/performance in 2025–26. 32K token context (vs OpenAI's 8K). First 200M tokens free. Shares embedding space with voyage-4-large — switch tiers without re-indexing.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>32,000</div>
+        <div class="mc-stat"><span class="lbl">FREE</span>200M tokens</div>
+        <div class="mc-stat"><span class="lbl">ACCESS</span>voyageai.com</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">voyage-4-large</div><div class="mc-provider">Voyage AI (MongoDB)</div></div>
+        <span class="tag tag-paid">$0.06/MTok</span>
+      </div>
+      <div class="mc-body">Top MTEB retrieval scores in 2026. MoE architecture. Beats OpenAI 3-large by 14% on retrieval. Best choice if retrieval quality directly affects your product's value.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>32,000</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>~68+</div>
+        <div class="mc-stat"><span class="lbl">BATCH</span>33% off</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">embed-v4.0 (English)</div><div class="mc-provider">Cohere</div></div>
+        <span class="tag tag-paid">$0.12/MTok</span>
+      </div>
+      <div class="mc-body">128K token context — embed entire documents without chunking. Best for multilingual (100+ languages). Separate search_document / search_query types optimize retrieval. 1000 free calls/month.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>128,000</div>
+        <div class="mc-stat"><span class="lbl">FREE</span>1K calls/mo</div>
+        <div class="mc-stat"><span class="lbl">ACCESS</span>cohere.com</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">text-embedding-005</div><div class="mc-provider">Google (Gemini)</div></div>
+        <span class="tag tag-free">FREE tier</span>
+      </div>
+      <div class="mc-body">Cheapest production API at $0.006/MTok (paid). FREE on Gemini AI Studio for development. 63.8 MTEB — solid quality. 2,048 token limit. Best budget option for production.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>768</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>2,048</div>
+        <div class="mc-stat"><span class="lbl">PRICE</span>$0.006/MTok</div>
+        <div class="mc-stat"><span class="lbl">ACCESS</span>ai.google.dev</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">jina-embeddings-v3</div><div class="mc-provider">Jina AI</div></div>
+        <span class="tag tag-free">Free tier</span>
+      </div>
+      <div class="mc-body">65.5 MTEB at $0.02/MTok — outperforms OpenAI 3-large on benchmarks at a fraction of the price. Strong multilingual. 8,192 token context. 1M free tokens on sign-up.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>8,192</div>
+        <div class="mc-stat"><span class="lbl">FREE</span>1M tokens</div>
+        <div class="mc-stat"><span class="lbl">MTEB</span>65.5</div>
+      </div>
+    </div>
+    <div class="model-card paid-card">
+      <div class="mc-header">
+        <div><div class="mc-name">mistral-embed</div><div class="mc-provider">Mistral AI</div></div>
+        <span class="tag tag-paid">$0.10/MTok</span>
+      </div>
+      <div class="mc-body">Highest accuracy in some benchmarks (77.8%). European-made model — GDPR compliant by default. 8,192 token context. Strong for French, Spanish, Italian, German content.</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><span class="lbl">DIMS</span>1024</div>
+        <div class="mc-stat"><span class="lbl">TOKENS</span>8,192</div>
+        <div class="mc-stat"><span class="lbl">ACCURACY</span>77.8%</div>
+        <div class="mc-stat"><span class="lbl">ACCESS</span>mistral.ai</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ COMPARISON ══════════════ -->
+<div class="section" id="section-compare">
+  <div class="sec-title">Model Comparison Table</div>
+  <div class="sec-subtitle">All models side by side — price, quality, token limits, and best use case.</div>
+
+  <h3>Free &amp; Local Models</h3>
+  <table class="comp-table">
+    <tr><th>Model</th><th>Provider</th><th>Dims</th><th>Token Limit</th><th>MTEB</th><th>Cost</th><th>Best For</th></tr>
+    <tr><td><code>all-MiniLM-L6-v2</code></td><td>HuggingFace</td><td>384</td><td>256</td><td class="mteb">56.3</td><td class="price-free">FREE</td><td>Prototyping, learning</td></tr>
+    <tr><td><code>all-mpnet-base-v2</code></td><td>HuggingFace</td><td>768</td><td>384</td><td class="mteb">57.8</td><td class="price-free">FREE</td><td>General text, balanced</td></tr>
+    <tr><td><code>bge-small-en-v1.5</code></td><td>BAAI</td><td>384</td><td>512</td><td class="mteb">62.1</td><td class="price-free">FREE</td><td>Best small free model</td></tr>
+    <tr><td><code>bge-large-en-v1.5</code></td><td>BAAI</td><td>1024</td><td>512</td><td class="mteb">64.2</td><td class="price-free">FREE</td><td>Best large free model</td></tr>
+    <tr><td><code>e5-base-v2</code></td><td>Microsoft</td><td>768</td><td>512</td><td class="mteb">61.5</td><td class="price-free">FREE</td><td>Passage retrieval</td></tr>
+    <tr><td><code>nomic-embed-text</code></td><td>Nomic AI</td><td>768</td><td>8192</td><td class="mteb">62.4</td><td class="price-free">FREE</td><td>Long docs, Ollama</td></tr>
+    <tr><td><code>mxbai-embed-large-v1</code></td><td>Mixedbread</td><td>1024</td><td>512</td><td class="mteb">64.7</td><td class="price-free">FREE</td><td>Best offline quality</td></tr>
+  </table>
+
+  <h3>Paid API Models</h3>
+  <table class="comp-table">
+    <tr><th>Model</th><th>Provider</th><th>Dims</th><th>Token Limit</th><th>MTEB</th><th>Price/MTok</th><th>Free Tier</th></tr>
+    <tr><td><code>text-embedding-3-small</code></td><td>OpenAI</td><td>1536</td><td>8,191</td><td class="mteb">62.3</td><td class="price-paid">$0.02</td><td>None</td></tr>
+    <tr><td><code>text-embedding-3-large</code></td><td>OpenAI</td><td>3072</td><td>8,191</td><td class="mteb">64.6</td><td class="price-paid">$0.13</td><td>None</td></tr>
+    <tr><td><code>text-embedding-005</code></td><td>Google</td><td>768</td><td>2,048</td><td class="mteb">63.8</td><td class="price-paid">$0.006</td><td>✅ AI Studio</td></tr>
+    <tr><td><code>voyage-4-lite</code></td><td>Voyage AI</td><td>1024</td><td>32,000</td><td class="mteb">65+</td><td class="price-paid">$0.02</td><td>✅ 200M tokens</td></tr>
+    <tr><td><code>voyage-4-large</code></td><td>Voyage AI</td><td>1024</td><td>32,000</td><td class="mteb">68+</td><td class="price-paid">$0.06</td><td>✅ 200M tokens</td></tr>
+    <tr><td><code>embed-v4.0</code></td><td>Cohere</td><td>1024</td><td>128,000</td><td class="mteb">66.3</td><td class="price-paid">$0.12</td><td>✅ 1K calls/mo</td></tr>
+    <tr><td><code>jina-embeddings-v3</code></td><td>Jina AI</td><td>1024</td><td>8,192</td><td class="mteb">65.5</td><td class="price-paid">$0.02</td><td>✅ 1M tokens</td></tr>
+    <tr><td><code>mistral-embed</code></td><td>Mistral</td><td>1024</td><td>8,192</td><td class="mteb">64.9</td><td class="price-paid">$0.10</td><td>None</td></tr>
+  </table>
+
+  <div class="callout callout-amber">
+    <strong>MTEB note:</strong> MTEB (Massive Text Embedding Benchmark) measures performance across retrieval, clustering, and classification tasks. Higher = better. Numbers above reflect 2025–26 benchmarks. Always test on YOUR data — benchmark ranks can shift per domain.
+  </div>
+</div>
+
+<!-- ══════════════ HOW TO CHOOSE ══════════════ -->
+<div class="section" id="section-choose">
+  <div class="sec-title">How to Choose the Right Model</div>
+  <div class="sec-subtitle">Use this decision tree to pick the right model for your situation — don't overthink it, the decision tree covers 95% of cases.</div>
+
+  <div class="dtree">
+    <div class="dtree-q">❓ What is your primary constraint?</div>
+    <div class="dtree-row"><div class="dtree-cond">No money / offline</div><div class="dtree-result">→ <strong>BAAI/bge-small-en-v1.5</strong> (HuggingFace, free, 133MB). Or <strong>nomic-embed-text</strong> via Ollama for long docs.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Learning / experiments</div><div class="dtree-result">→ <strong>all-MiniLM-L6-v2</strong> — fastest to set up, runs on any machine, great for understanding concepts.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Best free quality</div><div class="dtree-result">→ <strong>BAAI/bge-large-en-v1.5</strong> — best MTEB among free models, needs 4GB RAM.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Cheapest paid API</div><div class="dtree-result">→ <strong>Google text-embedding-005</strong> at $0.006/MTok — or <strong>voyage-4-lite</strong> at $0.02/MTok with 200M free tokens.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Best retrieval quality</div><div class="dtree-result">→ <strong>voyage-4-large</strong> — best MTEB retrieval scores in 2026, 32K token context.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Multilingual content</div><div class="dtree-result">→ <strong>Cohere embed-v4.0</strong> — 100+ languages, or <strong>BAAI/bge-m3</strong> (free, multilingual).</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Code / technical docs</div><div class="dtree-result">→ <strong>voyage-code-3</strong> (paid) or <strong>Codestral Embed</strong> by Mistral for code-specific retrieval.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Very long documents</div><div class="dtree-result">→ <strong>Cohere embed-v4.0</strong> (128K tokens) or <strong>voyage-4-lite</strong> (32K). Both handle full docs without chunking.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">OpenAI ecosystem already</div><div class="dtree-result">→ <strong>text-embedding-3-small</strong> — simplest integration, battle-tested, good enough for most cases.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">GDPR / European compliance</div><div class="dtree-result">→ <strong>mistral-embed</strong> — EU-based, GDPR compliant by default.</div></div>
+  </div>
+
+  <div class="callout callout-purple">
+    <strong>Master tip:</strong> Start with <code>bge-small-en-v1.5</code> (free, local) to build and test your pipeline. Only switch to a paid API when you've validated the pipeline works end-to-end. Switching embedding models requires re-embedding your entire document store — so don't switch casually once in production.
+  </div>
+</div>
+
+<!-- ══════════════ SETUP ══════════════ -->
+<div class="section" id="section-setup">
+  <div class="sec-title">Setup &amp; Installation</div>
+  <div class="sec-subtitle">Install what you need for each provider. Don't install everything — pick your model first, then install only what it needs.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal — install by provider</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># ── CORE (always install first) ──────────────────────</span>
+pip install langchain langchain-community langchain-core
+
+<span class="cm"># ── FREE / LOCAL (HuggingFace + sentence-transformers) ─</span>
+pip install sentence-transformers
+pip install langchain-huggingface
+pip install torch                  <span class="cm"># CPU version is fine for most use cases</span>
+<span class="cm"># For GPU acceleration:</span>
+<span class="cm"># pip install torch --index-url https://download.pytorch.org/whl/cu121</span>
+
+<span class="cm"># ── OLLAMA (fully offline, easiest local setup) ──────</span>
+<span class="cm"># Linux/Mac: curl -fsSL https://ollama.ai/install.sh | sh</span>
+<span class="cm"># Windows: download installer from ollama.ai</span>
+pip install langchain-ollama
+<span class="cm"># Then in terminal: ollama pull nomic-embed-text</span>
+<span class="cm"># Or:               ollama pull mxbai-embed-large</span>
+
+<span class="cm"># ── OPENAI API ────────────────────────────────────────</span>
+pip install langchain-openai openai
+<span class="cm"># Set env var: export OPENAI_API_KEY="sk-..."</span>
+
+<span class="cm"># ── GOOGLE GEMINI (free tier available) ──────────────</span>
+pip install langchain-google-genai google-generativeai
+<span class="cm"># Get free API key: aistudio.google.com</span>
+<span class="cm"># Set env var: export GOOGLE_API_KEY="..."</span>
+
+<span class="cm"># ── COHERE ───────────────────────────────────────────</span>
+pip install langchain-cohere cohere
+<span class="cm"># Get free key: cohere.com (1000 calls/month free)</span>
+<span class="cm"># Set env var: export COHERE_API_KEY="..."</span>
+
+<span class="cm"># ── VOYAGE AI (200M tokens free) ─────────────────────</span>
+pip install langchain-voyageai voyageai
+<span class="cm"># Get free key: voyageai.com (200M tokens free)</span>
+<span class="cm"># Set env var: export VOYAGE_API_KEY="..."</span>
+
+<span class="cm"># ── JINA AI (1M tokens free) ─────────────────────────</span>
+pip install langchain-community  <span class="cm"># JinaEmbeddings is in community</span>
+<span class="cm"># Get free key: jina.ai (1M tokens free)</span>
+<span class="cm"># Set env var: export JINA_API_KEY="..."</span>
+
+<span class="cm"># ── MISTRAL ──────────────────────────────────────────</span>
+pip install langchain-mistralai mistralai
+<span class="cm"># Set env var: export MISTRAL_API_KEY="..."</span>
+
+<span class="cm"># ── Store API keys in .env file (recommended) ────────</span>
+pip install python-dotenv</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">.env — store all your API keys here (never commit to git)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre>OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
+GOOGLE_API_KEY=AIzaxxxxxxxxxxxxxxxxxx
+COHERE_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxx
+VOYAGE_API_KEY=pa-xxxxxxxxxxxxxxxxxxxxxxxx
+JINA_API_KEY=jina_xxxxxxxxxxxxxxxxxxxxxxxx
+MISTRAL_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxx</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">load_env.py — load keys at start of your script</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+<span class="kw">import</span> <span class="imp">os</span>
+
+load_dotenv()  <span class="cm"># loads .env into environment variables</span>
+
+<span class="cm"># Now all os.getenv() calls will work</span>
+openai_key  = os.getenv(<span class="str">"OPENAI_API_KEY"</span>)
+google_key  = os.getenv(<span class="str">"GOOGLE_API_KEY"</span>)
+cohere_key  = os.getenv(<span class="str">"COHERE_API_KEY"</span>)
+voyage_key  = os.getenv(<span class="str">"VOYAGE_API_KEY"</span>)
+
+<span class="fn">print</span>(<span class="str">"Keys loaded:"</span>, [k <span class="kw">for</span> k,v <span class="kw">in</span> {
+    <span class="str">"openai"</span>:openai_key, <span class="str">"google"</span>:google_key,
+    <span class="str">"cohere"</span>:cohere_key, <span class="str">"voyage"</span>:voyage_key
+}.items() <span class="kw">if</span> v])</pre>
+  </div>
+</div>
+
+<!-- ══════════════ LOCAL CODE ══════════════ -->
+<div class="section" id="section-local-code">
+  <div class="sec-title">Local / Free Model Code <span class="tag tag-free">FREE · NO API KEY</span></div>
+  <div class="sec-subtitle">Complete LangChain embedding code for all free HuggingFace models — works offline, no cost.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_huggingface.py — HuggingFace sentence-transformers</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># ── Option A: MiniLM (fastest, good for prototyping) ──</span>
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(
+    model_name=<span class="str">"sentence-transformers/all-MiniLM-L6-v2"</span>,
+    model_kwargs={<span class="str">"device"</span>: <span class="str">"cpu"</span>},     <span class="cm"># "cuda" if you have GPU</span>
+    encode_kwargs={<span class="str">"normalize_embeddings"</span>: <span class="dec">True</span>}  <span class="cm"># for cosine similarity</span>
+)
+
+<span class="cm"># ── Option B: BGE-small (best free quality at small size) ─</span>
+embeddings_bge = <span class="cls">HuggingFaceEmbeddings</span>(
+    model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>,
+    model_kwargs={<span class="str">"device"</span>: <span class="str">"cpu"</span>},
+    encode_kwargs={<span class="str">"normalize_embeddings"</span>: <span class="dec">True</span>}
+)
+
+<span class="cm"># ── Option C: BGE-large (best free quality overall) ───</span>
+embeddings_large = <span class="cls">HuggingFaceEmbeddings</span>(
+    model_name=<span class="str">"BAAI/bge-large-en-v1.5"</span>,
+    model_kwargs={<span class="str">"device"</span>: <span class="str">"cpu"</span>},
+    encode_kwargs={<span class="str">"normalize_embeddings"</span>: <span class="dec">True</span>}
+)
+
+<span class="cm"># ── IMPORTANT: BGE models need a query prefix ─────────</span>
+<span class="cm"># When embedding CHUNKS (documents):  no prefix needed</span>
+<span class="cm"># When embedding QUERIES: add "Represent this sentence for retrieval: "</span>
+<span class="cm"># LangChain handles this automatically via embed_query() vs embed_documents()</span>
+
+<span class="cm"># ── Usage: embed a list of texts ──────────────────────</span>
+texts = [
+    <span class="str">"RAG is retrieval augmented generation"</span>,
+    <span class="str">"LangChain helps build AI applications"</span>
+]
+
+<span class="cm"># Embed documents (chunks) — use for indexing</span>
+doc_embeddings = embeddings.embed_documents(texts)
+<span class="fn">print</span>(<span class="str">f"Embedded {len(doc_embeddings)} docs"</span>)
+<span class="fn">print</span>(<span class="str">f"Each vector has {len(doc_embeddings[0])} dimensions"</span>)
+<span class="cm"># Output: Embedded 2 docs | Each vector has 384 dimensions</span>
+
+<span class="cm"># Embed a single query — use at retrieval time</span>
+query_embedding = embeddings.embed_query(<span class="str">"What is RAG?"</span>)
+<span class="fn">print</span>(<span class="str">f"Query vector: {len(query_embedding)} dims"</span>)
+
+<span class="cm"># ── Embed your Stage 2 chunks ─────────────────────────</span>
+<span class="cm"># stage2_chunks = list[Document] from chunking stage</span>
+chunk_texts = [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+all_embeddings = embeddings.embed_documents(chunk_texts)
+<span class="fn">print</span>(<span class="str">f"Embedded {len(all_embeddings)} chunks"</span>)
+<span class="fn">print</span>(<span class="str">f"Shape: ({len(all_embeddings)}, {len(all_embeddings[0])})"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_e5.py — Microsoft E5 with query/passage prefixes</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">sentence_transformers</span> <span class="kw">import</span> <span class="cls">SentenceTransformer</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+
+<span class="cm"># ── E5 requires explicit prefixes for best performance ─</span>
+<span class="cm"># Documents: "passage: your text here"</span>
+<span class="cm"># Queries:   "query: your question here"</span>
+
+model = <span class="cls">SentenceTransformer</span>(<span class="str">"intfloat/e5-base-v2"</span>)
+
+<span class="kw">def</span> <span class="fn">embed_documents_e5</span>(chunks: <span class="fn">list</span>[<span class="cls">Document</span>]) -> np.ndarray:
+    texts = [<span class="str">f"passage: {c.page_content}"</span> <span class="kw">for</span> c <span class="kw">in</span> chunks]
+    <span class="kw">return</span> model.encode(texts, normalize_embeddings=<span class="dec">True</span>)
+
+<span class="kw">def</span> <span class="fn">embed_query_e5</span>(query: <span class="fn">str</span>) -> np.ndarray:
+    <span class="kw">return</span> model.encode(<span class="str">f"query: {query}"</span>, normalize_embeddings=<span class="dec">True</span>)
+
+<span class="cm"># Usage</span>
+doc_vecs = <span class="fn">embed_documents_e5</span>(stage2_chunks)
+query_vec = <span class="fn">embed_query_e5</span>(<span class="str">"What is the return policy?"</span>)
+
+<span class="cm"># ── Compare query against all docs ────────────────────</span>
+similarities = np.dot(doc_vecs, query_vec)
+top_k_indices = np.argsort(similarities)[::-<span class="num">1</span>][:<span class="num">5</span>]
+
+<span class="fn">print</span>(<span class="str">"Top 5 relevant chunks:"</span>)
+<span class="kw">for</span> i <span class="kw">in</span> top_k_indices:
+    <span class="fn">print</span>(<span class="str">f"  [{similarities[i]:.3f}] {stage2_chunks[i].page_content[:100]}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ══════════════ API CODE ══════════════ -->
+<div class="section" id="section-api-code">
+  <div class="sec-title">Paid API Model Code <span class="tag tag-paid">API</span></div>
+  <div class="sec-subtitle">Full LangChain code for every paid provider — OpenAI, Google, Cohere, Voyage, Jina, Mistral.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_openai.py — OpenAI text-embedding-3</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_openai</span> <span class="kw">import</span> <span class="cls">OpenAIEmbeddings</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+<span class="cm"># ── text-embedding-3-small (cheap, good quality) ──────</span>
+embeddings_small = <span class="cls">OpenAIEmbeddings</span>(
+    model=<span class="str">"text-embedding-3-small"</span>,
+    dimensions=<span class="num">1536</span>   <span class="cm"># or 256, 512 for smaller storage (Matryoshka)</span>
+)
+
+<span class="cm"># ── text-embedding-3-large (best quality) ─────────────</span>
+embeddings_large = <span class="cls">OpenAIEmbeddings</span>(
+    model=<span class="str">"text-embedding-3-large"</span>,
+    dimensions=<span class="num">3072</span>   <span class="cm"># or 256/512/1024 for Matryoshka compression</span>
+)
+
+<span class="cm"># ── Embed chunks ──────────────────────────────────────</span>
+<span class="cm"># embed_documents: for indexing (batch of texts)</span>
+doc_embeddings = embeddings_small.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+
+<span class="cm"># embed_query: for single query at retrieval time</span>
+query_emb = embeddings_small.embed_query(<span class="str">"What is machine learning?"</span>)
+
+<span class="fn">print</span>(<span class="str">f"OpenAI embeddings: {len(doc_embeddings)} vectors of {len(doc_embeddings[0])} dims"</span>)
+
+<span class="cm"># ── Matryoshka: smaller dimensions, same model ────────</span>
+embeddings_compressed = <span class="cls">OpenAIEmbeddings</span>(
+    model=<span class="str">"text-embedding-3-large"</span>,
+    dimensions=<span class="num">256</span>   <span class="cm"># 12x smaller storage, ~95% quality retained</span>
+)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_google.py — Google Gemini (FREE on AI Studio)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_google_genai</span> <span class="kw">import</span> <span class="cls">GoogleGenerativeAIEmbeddings</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+<span class="cm"># ── Google text-embedding-005 (FREE on AI Studio) ─────</span>
+<span class="cm"># Get free key at: aistudio.google.com</span>
+embeddings = <span class="cls">GoogleGenerativeAIEmbeddings</span>(
+    model=<span class="str">"models/text-embedding-005"</span>,
+    task_type=<span class="str">"retrieval_document"</span>  <span class="cm"># for indexing documents</span>
+)
+
+<span class="cm"># Different task types optimize embeddings differently:</span>
+<span class="cm"># "retrieval_document"  → use for embedding your chunks</span>
+<span class="cm"># "retrieval_query"     → use for embedding user queries</span>
+<span class="cm"># "semantic_similarity" → for clustering/similarity</span>
+<span class="cm"># "classification"      → for text classification</span>
+
+doc_embeddings = embeddings.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+
+<span class="cm"># For query embedding, create a separate instance with query task</span>
+query_embeddings = <span class="cls">GoogleGenerativeAIEmbeddings</span>(
+    model=<span class="str">"models/text-embedding-005"</span>,
+    task_type=<span class="str">"retrieval_query"</span>
+)
+query_emb = query_embeddings.embed_query(<span class="str">"What is the main topic?"</span>)
+<span class="fn">print</span>(<span class="str">f"Google embedding dims: {len(query_emb)}"</span>)  <span class="cm"># 768</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_cohere.py — Cohere embed-v4.0</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_cohere</span> <span class="kw">import</span> <span class="cls">CohereEmbeddings</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+<span class="cm"># ── Cohere embed-v4.0 (1000 free calls/month) ─────────</span>
+<span class="cm"># input_type matters a lot for Cohere — always set it!</span>
+
+<span class="cm"># For embedding DOCUMENTS (indexing stage):</span>
+doc_embeddings_model = <span class="cls">CohereEmbeddings</span>(
+    model=<span class="str">"embed-english-v3.0"</span>,     <span class="cm"># or "embed-multilingual-v3.0"</span>
+    input_type=<span class="str">"search_document"</span>    <span class="cm"># optimizes for document indexing</span>
+)
+
+<span class="cm"># For embedding QUERIES (retrieval stage):</span>
+query_embeddings_model = <span class="cls">CohereEmbeddings</span>(
+    model=<span class="str">"embed-english-v3.0"</span>,
+    input_type=<span class="str">"search_query"</span>       <span class="cm"># optimizes for queries</span>
+)
+
+<span class="cm"># Embed chunks at index time</span>
+doc_vecs = doc_embeddings_model.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+
+<span class="cm"># Embed query at retrieval time</span>
+query_vec = query_embeddings_model.embed_query(<span class="str">"What is the pricing policy?"</span>)
+<span class="fn">print</span>(<span class="str">f"Cohere embedding dims: {len(query_vec)}"</span>)  <span class="cm"># 1024</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_voyage.py — Voyage AI (200M free tokens)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_voyageai</span> <span class="kw">import</span> <span class="cls">VoyageAIEmbeddings</span>
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+load_dotenv()
+
+<span class="cm"># ── voyage-4-lite (best value, 200M tokens free) ──────</span>
+embeddings = <span class="cls">VoyageAIEmbeddings</span>(
+    model=<span class="str">"voyage-4-lite"</span>,
+    input_type=<span class="str">"document"</span>   <span class="cm"># "document" for indexing, "query" for queries</span>
+)
+
+<span class="cm"># ── voyage-4-large (best retrieval quality) ───────────</span>
+embeddings_large = <span class="cls">VoyageAIEmbeddings</span>(
+    model=<span class="str">"voyage-4-large"</span>,
+    input_type=<span class="str">"document"</span>
+)
+
+doc_vecs = embeddings.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+query_vec = <span class="cls">VoyageAIEmbeddings</span>(model=<span class="str">"voyage-4-lite"</span>, input_type=<span class="str">"query"</span>
+    ).embed_query(<span class="str">"What is RAG?"</span>)
+
+<span class="fn">print</span>(<span class="str">f"Voyage embedding dims: {len(query_vec)}"</span>)  <span class="cm"># 1024</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_jina_mistral.py — Jina AI and Mistral</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># ── JINA AI (1M tokens free) ─────────────────────────</span>
+<span class="kw">from</span> <span class="imp">langchain_community.embeddings</span> <span class="kw">import</span> <span class="cls">JinaEmbeddings</span>
+
+jina_embeddings = <span class="cls">JinaEmbeddings</span>(
+    jina_api_key=os.getenv(<span class="str">"JINA_API_KEY"</span>),
+    model_name=<span class="str">"jina-embeddings-v3"</span>
+)
+jina_vecs = jina_embeddings.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+
+<span class="cm"># ── MISTRAL ───────────────────────────────────────────</span>
+<span class="kw">from</span> <span class="imp">langchain_mistralai</span> <span class="kw">import</span> <span class="cls">MistralAIEmbeddings</span>
+
+mistral_embeddings = <span class="cls">MistralAIEmbeddings</span>(
+    model=<span class="str">"mistral-embed"</span>
+)
+mistral_vecs = mistral_embeddings.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+<span class="fn">print</span>(<span class="str">f"Mistral dims: {len(mistral_vecs[0])}"</span>)  <span class="cm"># 1024</span></pre>
+  </div>
+</div>
+
+<!-- ══════════════ OLLAMA ══════════════ -->
+<div class="section" id="section-ollama">
+  <div class="sec-title">Ollama — Fully Offline Embeddings <span class="tag tag-local">OFFLINE</span></div>
+  <div class="sec-subtitle">Run powerful embedding models 100% offline on your desktop. No API key, no internet after download, no data leaves your machine. Best for privacy-sensitive RAG.</div>
+
+  <div class="callout callout-blue">
+    <strong>Perfect for your virtual desktop setup.</strong> Ollama runs embedding models as a local server. You pull a model once, then call it like an API — but it's all local. Works on CPU; GPU makes it much faster.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">terminal — Ollama setup commands</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># Install Ollama</span>
+<span class="cm"># Linux/Mac:</span>
+curl -fsSL https://ollama.ai/install.sh | sh
+
+<span class="cm"># Windows: download from ollama.ai/download</span>
+
+<span class="cm"># Pull embedding models (download once)</span>
+ollama pull nomic-embed-text      <span class="cm"># recommended — 8192 token context</span>
+ollama pull mxbai-embed-large     <span class="cm"># best quality (669 MB)</span>
+ollama pull all-minilm            <span class="cm"># fastest / lightest</span>
+
+<span class="cm"># Verify Ollama is running</span>
+ollama list     <span class="cm"># shows downloaded models</span>
+ollama serve    <span class="cm"># starts the server (auto-starts on install usually)</span>
+
+<span class="cm"># Test via curl</span>
+curl http://localhost:11434/api/embeddings -d '{
+  "model": "nomic-embed-text",
+  "prompt": "What is RAG?"
+}'</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_ollama.py — LangChain + Ollama</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">OllamaEmbeddings</span>
+
+<span class="cm"># ── nomic-embed-text (recommended for most cases) ─────</span>
+embeddings = <span class="cls">OllamaEmbeddings</span>(
+    model=<span class="str">"nomic-embed-text"</span>,
+    base_url=<span class="str">"http://localhost:11434"</span>   <span class="cm"># default Ollama URL</span>
+)
+
+<span class="cm"># ── mxbai-embed-large (best quality offline) ──────────</span>
+embeddings_large = <span class="cls">OllamaEmbeddings</span>(
+    model=<span class="str">"mxbai-embed-large"</span>
+)
+
+<span class="cm"># ── Embed documents ───────────────────────────────────</span>
+doc_vecs = embeddings.embed_documents(
+    [c.page_content <span class="kw">for</span> c <span class="kw">in</span> stage2_chunks]
+)
+query_vec = embeddings.embed_query(<span class="str">"What is the main topic?"</span>)
+
+<span class="fn">print</span>(<span class="str">f"Ollama dims: {len(doc_vecs[0])}"</span>)    <span class="cm"># 768 for nomic, 1024 for mxbai</span>
+<span class="fn">print</span>(<span class="str">f"Embedded {len(doc_vecs)} chunks offline"</span>)
+
+<span class="cm"># ── nomic-embed-text with 8K context ──────────────────</span>
+<span class="cm"># nomic-embed-text supports up to 8192 tokens</span>
+<span class="cm"># Good for large chunks without truncation</span>
+long_chunk_embeddings = <span class="cls">OllamaEmbeddings</span>(
+    model=<span class="str">"nomic-embed-text"</span>,
+    model_kwargs={<span class="str">"num_ctx"</span>: <span class="num">8192</span>}   <span class="cm"># use full context window</span>
+)
+
+<span class="cm"># ── Test if Ollama is running before embedding ─────────</span>
+<span class="kw">import</span> <span class="imp">requests</span>
+
+<span class="kw">def</span> <span class="fn">check_ollama_running</span>():
+    <span class="kw">try</span>:
+        r = requests.get(<span class="str">"http://localhost:11434"</span>, timeout=<span class="num">2</span>)
+        <span class="kw">return</span> r.status_code == <span class="num">200</span>
+    <span class="kw">except</span>:
+        <span class="kw">return</span> <span class="dec">False</span>
+
+<span class="kw">if</span> <span class="kw">not</span> <span class="fn">check_ollama_running</span>():
+    <span class="fn">print</span>(<span class="str">"⚠️ Ollama not running. Start it with: ollama serve"</span>)
+<span class="kw">else</span>:
+    <span class="fn">print</span>(<span class="str">"✅ Ollama is running"</span>)</pre>
+  </div>
+</div>
+
+<!-- ══════════════ BATCH & CACHE ══════════════ -->
+<div class="section" id="section-batch">
+  <div class="sec-title">Batch Embedding &amp; Caching</div>
+  <div class="sec-subtitle">Embed thousands of chunks efficiently — batch processing, caching to disk so you don't re-embed, progress tracking, and cost estimation.</div>
+
+  <div class="callout callout-amber">
+    <strong>Critical for production:</strong> Never re-embed the same chunks twice. Embedding 10,000 chunks with OpenAI costs money and takes time. Cache embeddings to disk — reload them on restart instead of re-computing.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">embed_batch_cached.py — efficient batch embedding with disk cache</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">import</span> <span class="imp">json</span>, <span class="imp">os</span>, <span class="imp">hashlib</span>, <span class="imp">time</span>
+<span class="kw">from</span> <span class="imp">pathlib</span> <span class="kw">import</span> <span class="cls">Path</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">tqdm</span> <span class="kw">import</span> tqdm  <span class="cm"># pip install tqdm</span>
+
+<span class="cm"># ── Cache embeddings to avoid re-embedding ────────────</span>
+<span class="kw">class</span> <span class="cls">EmbeddingCache</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="dec">self</span>, cache_dir: <span class="fn">str</span> = <span class="str">"./embedding_cache"</span>):
+        <span class="dec">self</span>.cache_dir = <span class="cls">Path</span>(cache_dir)
+        <span class="dec">self</span>.cache_dir.mkdir(exist_ok=<span class="dec">True</span>)
+
+    <span class="kw">def</span> <span class="fn">_hash</span>(<span class="dec">self</span>, text: <span class="fn">str</span>) -> <span class="fn">str</span>:
+        <span class="kw">return</span> hashlib.md5(text.encode()).hexdigest()
+
+    <span class="kw">def</span> <span class="fn">get</span>(<span class="dec">self</span>, text: <span class="fn">str</span>):
+        path = <span class="dec">self</span>.cache_dir / <span class="str">f"{self._hash(text)}.npy"</span>
+        <span class="kw">if</span> path.exists():
+            <span class="kw">return</span> np.load(<span class="fn">str</span>(path))
+        <span class="kw">return</span> <span class="dec">None</span>
+
+    <span class="kw">def</span> <span class="fn">set</span>(<span class="dec">self</span>, text: <span class="fn">str</span>, embedding: np.ndarray):
+        path = <span class="dec">self</span>.cache_dir / <span class="str">f"{self._hash(text)}.npy"</span>
+        np.save(<span class="fn">str</span>(path), embedding)
+
+<span class="cm"># ── Batch embedding with progress bar + caching ───────</span>
+<span class="kw">def</span> <span class="fn">embed_chunks_batch</span>(
+    chunks: <span class="fn">list</span>[<span class="cls">Document</span>],
+    embeddings_model,
+    batch_size: <span class="fn">int</span> = <span class="num">32</span>,
+    use_cache: <span class="fn">bool</span> = <span class="dec">True</span>,
+    cache_dir: <span class="fn">str</span> = <span class="str">"./embedding_cache"</span>
+) -> <span class="fn">list</span>:
+    <span class="str">"""Embed chunks in batches with caching and progress tracking."""</span>
+
+    cache = <span class="cls">EmbeddingCache</span>(cache_dir) <span class="kw">if</span> use_cache <span class="kw">else</span> <span class="dec">None</span>
+    all_embeddings = []
+    cache_hits = <span class="num">0</span>
+    to_embed = []
+
+    <span class="cm"># Check cache first</span>
+    <span class="kw">for</span> chunk <span class="kw">in</span> chunks:
+        <span class="kw">if</span> cache:
+            cached = cache.get(chunk.page_content)
+            <span class="kw">if</span> cached <span class="kw">is not</span> <span class="dec">None</span>:
+                all_embeddings.append(cached)
+                cache_hits += <span class="num">1</span>
+                <span class="kw">continue</span>
+        to_embed.append(chunk)
+        all_embeddings.append(<span class="dec">None</span>)   <span class="cm"># placeholder</span>
+
+    <span class="fn">print</span>(<span class="str">f"Cache hits: {cache_hits}/{len(chunks)} | To embed: {len(to_embed)}"</span>)
+
+    <span class="cm"># Embed remaining in batches</span>
+    embed_idx = <span class="num">0</span>
+    <span class="kw">for</span> i <span class="kw">in</span> tqdm(<span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(to_embed), batch_size), desc=<span class="str">"Embedding"</span>):
+        batch = to_embed[i:i+batch_size]
+        batch_texts = [c.page_content <span class="kw">for</span> c <span class="kw">in</span> batch]
+        batch_vecs = embeddings_model.embed_documents(batch_texts)
+
+        <span class="kw">for</span> j, vec <span class="kw">in</span> <span class="fn">enumerate</span>(batch_vecs):
+            <span class="kw">if</span> cache: cache.set(batch[j].page_content, np.array(vec))
+
+        <span class="cm"># Fill in placeholders</span>
+        none_idx = [k <span class="kw">for</span> k, e <span class="kw">in</span> <span class="fn">enumerate</span>(all_embeddings) <span class="kw">if</span> e <span class="kw">is</span> <span class="dec">None</span>]
+        <span class="kw">for</span> k, vec <span class="kw">in</span> <span class="fn">zip</span>(none_idx[:batch_size], batch_vecs):
+            all_embeddings[none_idx[k]] = np.array(vec)
+
+    <span class="fn">print</span>(<span class="str">f"✅ Embedded {len(all_embeddings)} chunks total"</span>)
+    <span class="kw">return</span> all_embeddings
+
+<span class="cm"># ── Cost estimator for API models ─────────────────────</span>
+<span class="kw">def</span> <span class="fn">estimate_embedding_cost</span>(chunks: <span class="fn">list</span>[<span class="cls">Document</span>], model: <span class="fn">str</span> = <span class="str">"openai-small"</span>):
+    total_chars = <span class="fn">sum</span>(<span class="fn">len</span>(c.page_content) <span class="kw">for</span> c <span class="kw">in</span> chunks)
+    approx_tokens = total_chars // <span class="num">4</span>   <span class="cm"># rough estimate: 4 chars ≈ 1 token</span>
+    prices = {
+        <span class="str">"openai-small"</span>: <span class="num">0.02</span>,   <span class="cm"># per MTok</span>
+        <span class="str">"openai-large"</span>: <span class="num">0.13</span>,
+        <span class="str">"voyage-lite"</span>:  <span class="num">0.02</span>,
+        <span class="str">"voyage-large"</span>: <span class="num">0.06</span>,
+        <span class="str">"cohere"</span>:       <span class="num">0.12</span>,
+        <span class="str">"google"</span>:       <span class="num">0.006</span>,
+        <span class="str">"jina"</span>:         <span class="num">0.02</span>,
+    }
+    price_per_mtok = prices.get(model, <span class="num">0.02</span>)
+    cost = (approx_tokens / <span class="num">1_000_000</span>) * price_per_mtok
+    <span class="fn">print</span>(<span class="str">f"Chunks: {len(chunks)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Approx tokens: {approx_tokens:,}"</span>)
+    <span class="fn">print</span>(<span class="str">f"Estimated cost ({model}): ${cost:.4f}"</span>)
+    <span class="kw">return</span> cost
+
+<span class="cm"># Usage</span>
+<span class="fn">estimate_embedding_cost</span>(stage2_chunks, <span class="str">"openai-small"</span>)</pre>
+  </div>
+</div>
+
+<!-- ══════════════ FULL PIPELINE ══════════════ -->
+<div class="section" id="section-pipeline">
+  <div class="sec-title">⑪ Complete Stage 3 Pipeline <span class="tag tag-purple">END-TO-END</span></div>
+  <div class="sec-subtitle">One script that takes Stage 2 chunks → selects the right embedding model → embeds everything → outputs vectors ready for Stage 4 (Vector Store).</div>
+
+  <div class="callout callout-green">
+    <strong>This is your practice file.</strong> Set <code>EMBEDDING_PROVIDER</code> to switch between local, Ollama, or any API model. Run it on your Stage 2 chunks and inspect the embedding output.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="fname">stage3_embedding_pipeline.py — COMPLETE production-ready</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="str">"""
+RAG Pipeline — Stage 3: Embedding
+Input : list[Document] chunks from Stage 2
+Output: embeddings_model (LangChain Embeddings object)
+        + list of float vectors (one per chunk)
+
+Provider options (set EMBEDDING_PROVIDER below):
+  "local_minilm"  → all-MiniLM-L6-v2       (free, fast, CPU)
+  "local_bge"     → BAAI/bge-small-en-v1.5  (free, best quality)
+  "local_bge_l"   → BAAI/bge-large-en-v1.5  (free, needs 4GB RAM)
+  "ollama_nomic"  → nomic-embed-text         (offline, 8K ctx)
+  "ollama_mxbai"  → mxbai-embed-large        (offline, best quality)
+  "openai_small"  → text-embedding-3-small   (paid, $0.02/MTok)
+  "openai_large"  → text-embedding-3-large   (paid, $0.13/MTok)
+  "google"        → text-embedding-005       (free tier available)
+  "cohere"        → embed-english-v3.0       (1K free calls/month)
+  "voyage_lite"   → voyage-4-lite            (200M free tokens)
+  "voyage_large"  → voyage-4-large           (200M free tokens)
+  "jina"          → jina-embeddings-v3       (1M free tokens)
+  "mistral"       → mistral-embed            (paid)
+"""</span>
+
+<span class="kw">import</span> <span class="imp">os</span>, <span class="imp">time</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+<span class="kw">from</span> <span class="imp">dotenv</span> <span class="kw">import</span> load_dotenv
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+load_dotenv()
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# CONFIGURATION — change this to switch providers
+# ─────────────────────────────────────────────────────</span>
+EMBEDDING_PROVIDER = <span class="str">"local_bge"</span>  <span class="cm"># ← change this</span>
+BATCH_SIZE = <span class="num">64</span>   <span class="cm"># adjust based on RAM: 32 for small RAM, 128 for large</span>
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# PROVIDER FACTORY
+# ─────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">get_embedding_model</span>(provider: <span class="fn">str</span>):
+    <span class="str">"""Load the embedding model for the given provider."""</span>
+
+    <span class="kw">if</span> provider == <span class="str">"local_minilm"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">HuggingFaceEmbeddings</span>(
+            model_name=<span class="str">"sentence-transformers/all-MiniLM-L6-v2"</span>,
+            model_kwargs={<span class="str">"device"</span>:<span class="str">"cpu"</span>},
+            encode_kwargs={<span class="str">"normalize_embeddings"</span>:<span class="dec">True</span>}
+        )
+    <span class="kw">elif</span> provider == <span class="str">"local_bge"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">HuggingFaceEmbeddings</span>(
+            model_name=<span class="str">"BAAI/bge-small-en-v1.5"</span>,
+            model_kwargs={<span class="str">"device"</span>:<span class="str">"cpu"</span>},
+            encode_kwargs={<span class="str">"normalize_embeddings"</span>:<span class="dec">True</span>}
+        )
+    <span class="kw">elif</span> provider == <span class="str">"local_bge_l"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">HuggingFaceEmbeddings</span>(
+            model_name=<span class="str">"BAAI/bge-large-en-v1.5"</span>,
+            model_kwargs={<span class="str">"device"</span>:<span class="str">"cpu"</span>},
+            encode_kwargs={<span class="str">"normalize_embeddings"</span>:<span class="dec">True</span>}
+        )
+    <span class="kw">elif</span> provider == <span class="str">"ollama_nomic"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">OllamaEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">OllamaEmbeddings</span>(model=<span class="str">"nomic-embed-text"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"ollama_mxbai"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_ollama</span> <span class="kw">import</span> <span class="cls">OllamaEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">OllamaEmbeddings</span>(model=<span class="str">"mxbai-embed-large"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"openai_small"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_openai</span> <span class="kw">import</span> <span class="cls">OpenAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">OpenAIEmbeddings</span>(model=<span class="str">"text-embedding-3-small"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"openai_large"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_openai</span> <span class="kw">import</span> <span class="cls">OpenAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">OpenAIEmbeddings</span>(model=<span class="str">"text-embedding-3-large"</span>, dimensions=<span class="num">3072</span>)
+    <span class="kw">elif</span> provider == <span class="str">"google"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_google_genai</span> <span class="kw">import</span> <span class="cls">GoogleGenerativeAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">GoogleGenerativeAIEmbeddings</span>(
+            model=<span class="str">"models/text-embedding-005"</span>, task_type=<span class="str">"retrieval_document"</span>
+        )
+    <span class="kw">elif</span> provider == <span class="str">"cohere"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_cohere</span> <span class="kw">import</span> <span class="cls">CohereEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">CohereEmbeddings</span>(model=<span class="str">"embed-english-v3.0"</span>, input_type=<span class="str">"search_document"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"voyage_lite"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_voyageai</span> <span class="kw">import</span> <span class="cls">VoyageAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">VoyageAIEmbeddings</span>(model=<span class="str">"voyage-4-lite"</span>, input_type=<span class="str">"document"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"voyage_large"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_voyageai</span> <span class="kw">import</span> <span class="cls">VoyageAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">VoyageAIEmbeddings</span>(model=<span class="str">"voyage-4-large"</span>, input_type=<span class="str">"document"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"jina"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_community.embeddings</span> <span class="kw">import</span> <span class="cls">JinaEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">JinaEmbeddings</span>(model_name=<span class="str">"jina-embeddings-v3"</span>)
+    <span class="kw">elif</span> provider == <span class="str">"mistral"</span>:
+        <span class="kw">from</span> <span class="imp">langchain_mistralai</span> <span class="kw">import</span> <span class="cls">MistralAIEmbeddings</span>
+        <span class="kw">return</span> <span class="cls">MistralAIEmbeddings</span>(model=<span class="str">"mistral-embed"</span>)
+    <span class="kw">else</span>:
+        <span class="kw">raise</span> <span class="cls">ValueError</span>(<span class="str">f"Unknown provider: {provider}"</span>)
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">run_embedding</span>(stage2_chunks: <span class="fn">list</span>[<span class="cls">Document</span>], provider: <span class="fn">str</span> = EMBEDDING_PROVIDER):
+    <span class="fn">print</span>(<span class="str">f"\n{'='*54}"</span>)
+    <span class="fn">print</span>(<span class="str">f" RAG Stage 3 — Embedding ({len(stage2_chunks)} chunks)"</span>)
+    <span class="fn">print</span>(<span class="str">f" Provider: {provider}"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*54}"</span>)
+
+    <span class="cm"># Load embedding model</span>
+    <span class="fn">print</span>(<span class="str">f"Loading model..."</span>)
+    t0 = time.time()
+    embed_model = <span class="fn">get_embedding_model</span>(provider)
+    <span class="fn">print</span>(<span class="str">f"Model loaded in {time.time()-t0:.1f}s"</span>)
+
+    <span class="cm"># Embed all chunks in batches</span>
+    all_embeddings = []
+    t0 = time.time()
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(stage2_chunks), BATCH_SIZE):
+        batch = stage2_chunks[i:i+BATCH_SIZE]
+        batch_texts = [c.page_content <span class="kw">for</span> c <span class="kw">in</span> batch]
+        batch_vecs = embed_model.embed_documents(batch_texts)
+        all_embeddings.extend(batch_vecs)
+        <span class="fn">print</span>(<span class="str">f"  Batch {i//BATCH_SIZE+1}: {len(batch)} chunks embedded"</span>)
+
+    elapsed = time.time() - t0
+    dims = <span class="fn">len</span>(all_embeddings[<span class="num">0</span>])
+
+    <span class="fn">print</span>(<span class="str">f"{'='*54}"</span>)
+    <span class="fn">print</span>(<span class="str">f"✅ Embedding complete"</span>)
+    <span class="fn">print</span>(<span class="str">f"   Vectors   : {len(all_embeddings)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"   Dimensions: {dims}"</span>)
+    <span class="fn">print</span>(<span class="str">f"   Time      : {elapsed:.1f}s"</span>)
+    <span class="fn">print</span>(<span class="str">f"   Storage   : ~{len(all_embeddings)*dims*4/1024/1024:.1f} MB (float32)"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*54}\n"</span>)
+
+    <span class="kw">return</span> embed_model, all_embeddings
+    <span class="cm"># embed_model → passes to Stage 4 (VectorStore creation)
+    # all_embeddings → the actual float vectors</span>
+
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="kw">from</span> <span class="imp">stage1_ingestion_pipeline</span> <span class="kw">import</span> run_ingestion
+    <span class="kw">from</span> <span class="imp">stage2_chunking_pipeline</span> <span class="kw">import</span> run_chunking
+
+    stage1_docs   = <span class="fn">run_ingestion</span>(<span class="str">"./data"</span>)
+    stage2_chunks = <span class="fn">run_chunking</span>(stage1_docs)
+    embed_model, embeddings = <span class="fn">run_embedding</span>(stage2_chunks)
+
+    <span class="cm"># Sanity check — similarity test</span>
+    test_query = <span class="str">"What is the main topic of these documents?"</span>
+    query_vec = np.array(embed_model.embed_query(test_query))
+    chunk_vecs = np.array(embeddings)
+    sims = np.dot(chunk_vecs, query_vec) / (
+        np.linalg.norm(chunk_vecs, axis=<span class="num">1</span>) * np.linalg.norm(query_vec)
+    )
+    top5 = np.argsort(sims)[::-<span class="num">1</span>][:<span class="num">5</span>]
+    <span class="fn">print</span>(<span class="str">"\nTop 5 chunks for test query:"</span>)
+    <span class="kw">for</span> i <span class="kw">in</span> top5:
+        <span class="fn">print</span>(<span class="str">f"  [{sims[i]:.3f}] {stage2_chunks[i].page_content[:100]}"</span>)</pre>
+  </div>
+
+  <div class="summary">
+    <h4>Stage 3 output → Stage 4 input</h4>
+    <div class="summary-row"><span class="lbl">embed_model</span><span class="val">LangChain Embeddings object</span></div>
+    <div class="summary-row"><span class="lbl">all_embeddings</span><span class="val">list[list[float]] — one per chunk</span></div>
+    <div class="summary-row"><span class="lbl">vector dimensions</span><span class="val">384 to 3072 depending on model</span></div>
+    <div class="summary-row"><span class="lbl">embed_model usage</span><span class="val">passed to VectorStore.from_documents()</span></div>
+    <div class="summary-row"><span class="lbl">Next stage</span><span class="val">Stage 4 — Vector Store (FAISS / ChromaDB)</span></div>
+  </div>
+
+  <div class="callout callout-purple" style="margin-top:24px">
+    <strong>Practice order:</strong> Day 1 — run with <code>local_bge</code>, inspect the vectors. Day 2 — sign up for Voyage AI (200M free tokens) and run with <code>voyage_lite</code>. Day 3 — compare retrieval quality between free and paid by testing top-5 similarity scores on the same queries. When you can explain why one model returns better results, you've mastered Stage 3.
+  </div>
+</div>
+
+</div><!-- end .content -->
+
+<script>
+const TAB_IDS = ['concept','free','paid','compare','choose','setup','local-code','api-code','ollama','batch','pipeline'];
+
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  const idx = TAB_IDS.indexOf(name);
+  const tabs = document.querySelectorAll('.nav-tab');
+  if (tabs[idx]) tabs[idx].classList.add('active');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Draw vector visualization bars
+function drawBars(id, pattern, color) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  for (let i = 0; i < 48; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'vec-bar';
+    const h = Math.abs(Math.sin(pattern * i + pattern * 3) * 20 + 4);
+    bar.style.height = h + 'px';
+    bar.style.background = color;
+    bar.style.opacity = 0.7 + Math.abs(Math.sin(i * 0.5)) * 0.3;
+    container.appendChild(bar);
+  }
+}
+drawBars('bars-q', 1.2,  '#a78bfa');
+drawBars('bars-a', 1.18, '#34d399');
+drawBars('bars-b', 1.4,  '#60a5fa');
+drawBars('bars-c', 3.7,  '#6b7280');
+</script>
+</body>
+</html>

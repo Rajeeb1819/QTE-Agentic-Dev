@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RAG Stage 2 — Chunking Masterclass</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0b0e16;
+    --surface: #131720;
+    --surface2: #1a1f2e;
+    --surface3: #1f263a;
+    --border: #252d42;
+    --accent: #38d9a9;
+    --accent2: #5b8af0;
+    --accent3: #f5a623;
+    --accent4: #e06c9a;
+    --accent5: #a855f7;
+    --text: #cdd4e8;
+    --muted: #5a6280;
+    --code-bg: #090c14;
+    --white: #eef1fa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.75;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 52px 44px 36px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content:'';
+    position:absolute; top:-80px; right:-60px;
+    width:380px; height:380px;
+    background: radial-gradient(circle, rgba(56,217,169,.09) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .header::before {
+    content:'';
+    position:absolute; bottom:-60px; left:200px;
+    width:280px; height:280px;
+    background: radial-gradient(circle, rgba(91,138,240,.07) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .stage-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(56,217,169,.1); border:1px solid rgba(56,217,169,.25);
+    color:var(--accent); font-family:'JetBrains Mono',monospace;
+    font-size:11px; padding:4px 14px; border-radius:20px;
+    margin-bottom:18px; letter-spacing:1.2px;
+  }
+  .header h1 {
+    font-family:'Syne',sans-serif; font-size:38px; font-weight:800;
+    color:var(--white); letter-spacing:-1.5px; margin-bottom:10px;
+  }
+  .header h1 em { color:var(--accent); font-style:normal; }
+  .header p { color:var(--muted); font-size:14.5px; max-width:600px; font-weight:300; }
+  .header-meta {
+    display:flex; gap:24px; margin-top:20px; flex-wrap:wrap;
+  }
+  .meta-pill {
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface); border:1px solid var(--border);
+    padding:6px 14px; border-radius:8px; font-size:12.5px; color:var(--muted);
+  }
+  .meta-pill span { color:var(--white); font-weight:500; }
+
+  /* ── NAV ── */
+  .nav {
+    display:flex; gap:0; padding:0 44px;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    overflow-x:auto; position:sticky; top:0; z-index:100;
+  }
+  .nav-tab {
+    padding:14px 18px; font-size:12.5px; font-weight:500;
+    color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+    white-space:nowrap; transition:all .2s;
+    display:flex; align-items:center; gap:7px; user-select:none;
+  }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--white); border-bottom-color:var(--accent); }
+  .nav-tab .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+  /* ── CONTENT ── */
+  .content { padding:44px; max-width:920px; }
+  .section { display:none; }
+  .section.active { display:block; animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── TYPOGRAPHY ── */
+  .sec-title {
+    font-family:'Syne',sans-serif; font-size:24px; font-weight:800;
+    color:var(--white); margin-bottom:8px; letter-spacing:-0.5px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .sec-subtitle { color:var(--muted); font-size:14px; margin-bottom:30px; }
+  h3 {
+    font-family:'Syne',sans-serif; font-size:15.5px; font-weight:700;
+    color:var(--white); margin:32px 0 12px;
+    display:flex; align-items:center; gap:10px;
+  }
+  h4 { color:var(--white); font-size:13.5px; font-weight:600; margin:20px 0 8px; }
+  .divider { height:1px; background:var(--border); margin:36px 0; }
+
+  /* ── TAGS ── */
+  .tag {
+    display:inline-block; padding:3px 9px; border-radius:5px;
+    font-size:10.5px; font-weight:600; letter-spacing:.5px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .tag-green  { background:rgba(56,217,169,.12); color:#6ee7c5; border:1px solid rgba(56,217,169,.25); }
+  .tag-blue   { background:rgba(91,138,240,.12);  color:#93b4f8; border:1px solid rgba(91,138,240,.25); }
+  .tag-amber  { background:rgba(245,166,35,.12);  color:#fcd07a; border:1px solid rgba(245,166,35,.25); }
+  .tag-pink   { background:rgba(224,108,154,.12); color:#f0a5c4; border:1px solid rgba(224,108,154,.25); }
+  .tag-purple { background:rgba(168,85,247,.12);  color:#d4a4f8; border:1px solid rgba(168,85,247,.25); }
+  .tag-gray   { background:rgba(90,98,128,.15);   color:#9099b8; border:1px solid rgba(90,98,128,.3); }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:12px; overflow:hidden; margin:18px 0;
+  }
+  .code-header {
+    background:var(--surface2); padding:10px 18px;
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--border);
+  }
+  .code-header span { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+  .code-header .file-label { color:var(--accent); font-size:11px; }
+  .copy-btn {
+    background:rgba(56,217,169,.1); border:1px solid rgba(56,217,169,.25);
+    color:var(--accent); font-size:10.5px; font-family:'JetBrains Mono',monospace;
+    padding:3px 10px; border-radius:4px; cursor:pointer; transition:all .2s;
+  }
+  .copy-btn:hover { background:rgba(56,217,169,.2); }
+  .copy-btn.copied { color:#6ee7c5; }
+  pre {
+    padding:22px; overflow-x:auto;
+    font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    line-height:1.85; color:#bac4da;
+  }
+  /* syntax */
+  .kw  { color:#c792ea; }
+  .fn  { color:#82aaff; }
+  .str { color:#c3e88d; }
+  .cm  { color:#405070; font-style:italic; }
+  .imp { color:#ffcb6b; }
+  .num { color:#f78c6c; }
+  .cls { color:#ffcb6b; }
+  .dec { color:#89ddff; }
+  .op  { color:#89ddff; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    padding:16px 20px; border-radius:10px; margin:18px 0;
+    border-left:3px solid; font-size:13.5px;
+  }
+  .callout-green  { background:rgba(56,217,169,.07); border-color:var(--accent); color:#90ddc6; }
+  .callout-blue   { background:rgba(91,138,240,.07); border-color:var(--accent2); color:#a8b8e8; }
+  .callout-amber  { background:rgba(245,158,11,.07); border-color:var(--accent3); color:#d4b87a; }
+  .callout-pink   { background:rgba(224,108,154,.07);border-color:var(--accent4); color:#e8aac0; }
+  .callout strong { color:var(--white); }
+  .callout code   { font-family:'JetBrains Mono',monospace; font-size:12px; color:#c3e88d; }
+
+  /* ── STRATEGY CARDS ── */
+  .strategy-grid {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:14px; margin:20px 0;
+  }
+  .strategy-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:18px 20px;
+    cursor:pointer; transition:all .2s;
+    border-top:3px solid transparent;
+  }
+  .strategy-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .strategy-card.active-card { border-top-color:var(--accent); background:var(--surface2); }
+  .card-num {
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--muted); margin-bottom:6px; letter-spacing:1px;
+  }
+  .card-name { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:var(--white); margin-bottom:4px; }
+  .card-desc { font-size:12.5px; color:var(--muted); line-height:1.5; }
+  .card-tags { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+
+  /* ── FLOW STEPS ── */
+  .flow-steps { margin:22px 0; }
+  .flow-step {
+    display:flex; gap:16px; margin-bottom:14px; align-items:flex-start;
+  }
+  .step-num {
+    width:28px; height:28px; border-radius:50%;
+    background:rgba(56,217,169,.12); border:1px solid rgba(56,217,169,.3);
+    color:var(--accent); font-size:11.5px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; font-family:'JetBrains Mono',monospace; margin-top:2px;
+  }
+  .step-body strong { color:var(--white); font-size:14px; }
+  .step-body p { color:var(--muted); font-size:12.5px; margin-top:2px; }
+
+  /* ── COMPARISON TABLE ── */
+  .comparison-table {
+    width:100%; border-collapse:collapse; font-size:12.5px; margin:16px 0;
+  }
+  .comparison-table th {
+    text-align:left; padding:10px 14px;
+    background:var(--surface2); color:var(--muted);
+    font-weight:500; font-size:10.5px; letter-spacing:.5px;
+    text-transform:uppercase; border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  .comparison-table td {
+    padding:10px 14px; border-bottom:1px solid rgba(37,45,66,.6); vertical-align:middle;
+  }
+  .comparison-table tr:hover td { background:rgba(255,255,255,.018); }
+  .comparison-table code {
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--accent); background:rgba(56,217,169,.08);
+    padding:1px 6px; border-radius:3px;
+  }
+  .rating { display:flex; gap:3px; }
+  .star { color:#f5a623; font-size:12px; }
+  .star.off { color:var(--border); }
+
+  /* ── DECISION TREE ── */
+  .dtree {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:24px; margin:20px 0;
+  }
+  .dtree-q {
+    background:var(--surface2); border:1px solid rgba(91,138,240,.25);
+    color:var(--accent2); padding:10px 16px; border-radius:8px;
+    font-size:13px; font-weight:500; margin-bottom:12px;
+  }
+  .dtree-row {
+    display:flex; gap:10px; margin-bottom:10px; align-items:flex-start;
+    padding-left:16px;
+  }
+  .dtree-cond {
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--accent3); white-space:nowrap; margin-top:2px;
+    background:rgba(245,166,35,.08); padding:2px 8px; border-radius:4px;
+  }
+  .dtree-result {
+    font-size:13px; color:var(--text);
+  }
+  .dtree-result strong { color:var(--accent); }
+
+  /* ── SUMMARY BOX ── */
+  .summary {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:22px; margin-top:28px;
+  }
+  .summary h4 {
+    font-family:'Syne',sans-serif; font-size:14px; font-weight:700;
+    color:var(--white); margin-bottom:16px;
+  }
+  .summary-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 0; border-bottom:1px solid rgba(37,45,66,.5);
+    font-size:13px;
+  }
+  .summary-row:last-child { border-bottom:none; }
+  .summary-row .lbl { color:var(--muted); }
+  .summary-row .val { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--accent); }
+
+  /* ── INSTALL BLOCK ── */
+  .install-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0; }
+  .install-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; padding:18px 20px;
+  }
+  .install-card h4 { margin-bottom:10px; font-size:13px; }
+
+  /* ── CHUNK VISUALIZER ── */
+  .chunk-vis { margin:20px 0; }
+  .chunk-block {
+    display:inline-block; padding:4px 10px; margin:4px 3px;
+    border-radius:5px; font-family:'JetBrains Mono',monospace;
+    font-size:11.5px; line-height:1.4;
+  }
+  .chunk-a { background:rgba(56,217,169,.15); border:1px solid rgba(56,217,169,.3); color:#6ee7c5; }
+  .chunk-b { background:rgba(91,138,240,.15); border:1px solid rgba(91,138,240,.3); color:#93b4f8; }
+  .chunk-c { background:rgba(245,166,35,.15);  border:1px solid rgba(245,166,35,.3);  color:#fcd07a; }
+  .chunk-d { background:rgba(168,85,247,.15);  border:1px solid rgba(168,85,247,.3);  color:#d4a4f8; }
+  .chunk-overlap { background:rgba(224,108,154,.15); border:1px solid rgba(224,108,154,.3); color:#f0a5c4; }
+  .vis-label { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; margin:8px 0 4px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<div class="header">
+  <div class="stage-badge">◆ RAG PIPELINE · STAGE 2 OF 6</div>
+  <h1>Chunking <em>Masterclass</em></h1>
+  <p>All 10 chunking strategies — theory, code, decision trees, and when to use each — for every document type in your multimodal RAG pipeline.</p>
+  <div class="header-meta">
+    <div class="meta-pill">Library: <span>langchain-text-splitters</span></div>
+    <div class="meta-pill">Strategies: <span>10 covered</span></div>
+    <div class="meta-pill">Input: <span>list[Document]</span></div>
+    <div class="meta-pill">Output: <span>list[Document] (chunks)</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showTab('setup')"><div class="dot" style="background:#38d9a9"></div>Setup</div>
+  <div class="nav-tab" onclick="showTab('overview')"><div class="dot" style="background:#5b8af0"></div>Overview</div>
+  <div class="nav-tab" onclick="showTab('fixed')"><div class="dot" style="background:#f5a623"></div>① Fixed-Size</div>
+  <div class="nav-tab" onclick="showTab('recursive')"><div class="dot" style="background:#38d9a9"></div>② Recursive</div>
+  <div class="nav-tab" onclick="showTab('token')"><div class="dot" style="background:#5b8af0"></div>③ Token</div>
+  <div class="nav-tab" onclick="showTab('semantic')"><div class="dot" style="background:#a855f7"></div>④ Semantic</div>
+  <div class="nav-tab" onclick="showTab('paragraph')"><div class="dot" style="background:#e06c9a"></div>⑤ Paragraph</div>
+  <div class="nav-tab" onclick="showTab('markdown')"><div class="dot" style="background:#f5a623"></div>⑥ Markdown</div>
+  <div class="nav-tab" onclick="showTab('code')"><div class="dot" style="background:#38d9a9"></div>⑦ Code/HTML</div>
+  <div class="nav-tab" onclick="showTab('sentence')"><div class="dot" style="background:#5b8af0"></div>⑧ Sentence</div>
+  <div class="nav-tab" onclick="showTab('hybrid')"><div class="dot" style="background:#e06c9a"></div>⑨ Hybrid</div>
+  <div class="nav-tab" onclick="showTab('pipeline')"><div class="dot" style="background:#a855f7"></div>⑩ Full Pipeline</div>
+</div>
+
+<div class="content">
+
+<!-- ═══════════════ SETUP ═══════════════ -->
+<div class="section active" id="section-setup">
+  <div class="sec-title">Setup &amp; Packages <span class="tag tag-green">START HERE</span></div>
+  <div class="sec-subtitle">Install everything you need before running any chunking strategy.</div>
+
+  <div class="callout callout-green">
+    <strong>Input contract:</strong> This stage receives <code>list[Document]</code> from Stage 1 Ingestion. Every chunker in this guide operates on that same list — no conversion needed.
+  </div>
+
+  <h3>Install all chunking libraries</h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="file-label">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">copy</button>
+    </div>
+<pre><span class="cm"># Core LangChain text splitters (required for ALL strategies)</span>
+pip install langchain-text-splitters
+
+<span class="cm"># Token-based chunking</span>
+pip install tiktoken              <span class="cm"># OpenAI tokenizer (works offline)</span>
+pip install transformers          <span class="cm"># HuggingFace tokenizer</span>
+pip install sentencepiece         <span class="cm"># needed by some HF tokenizers</span>
+
+<span class="cm"># Sentence-level splitting</span>
+pip install nltk spacy
+python -m spacy download en_core_web_sm  <span class="cm"># run after installing spacy</span>
+<span class="cm"># Also run in Python: import nltk; nltk.download('punkt')</span>
+
+<span class="cm"># Semantic chunking (uses your local embedding model)</span>
+pip install langchain-experimental  <span class="cm"># provides SemanticChunker</span>
+pip install sentence-transformers   <span class="cm"># local embedding model</span>
+pip install langchain-huggingface   <span class="cm"># HuggingFace embeddings wrapper</span>
+
+<span class="cm"># Unstructured (for paragraph/structure-aware chunking)</span>
+pip install "unstructured[all-docs]"
+
+<span class="cm"># Full langchain stack (if not already installed from Stage 1)</span>
+pip install langchain langchain-community langchain-core</pre>
+  </div>
+
+  <div class="install-grid">
+    <div class="install-card">
+      <h4><span class="tag tag-green">CORE</span> Always needed</h4>
+      <div style="font-size:13px; color:var(--muted); line-height:1.9;">
+        <code style="font-family:monospace;color:var(--accent)">langchain-text-splitters</code><br>
+        <code style="font-family:monospace;color:var(--accent)">langchain-core</code><br>
+        <code style="font-family:monospace;color:var(--accent)">langchain-community</code>
+      </div>
+    </div>
+    <div class="install-card">
+      <h4><span class="tag tag-blue">TOKEN</span> Token-aware splitting</h4>
+      <div style="font-size:13px; color:var(--muted); line-height:1.9;">
+        <code style="font-family:monospace;color:var(--accent)">tiktoken</code> — fast, offline<br>
+        <code style="font-family:monospace;color:var(--accent)">transformers</code> — HF models
+      </div>
+    </div>
+    <div class="install-card">
+      <h4><span class="tag tag-purple">SEMANTIC</span> Embedding-based</h4>
+      <div style="font-size:13px; color:var(--muted); line-height:1.9;">
+        <code style="font-family:monospace;color:var(--accent)">langchain-experimental</code><br>
+        <code style="font-family:monospace;color:var(--accent)">sentence-transformers</code>
+      </div>
+    </div>
+    <div class="install-card">
+      <h4><span class="tag tag-amber">NLP</span> Sentence splitting</h4>
+      <div style="font-size:13px; color:var(--muted); line-height:1.9;">
+        <code style="font-family:monospace;color:var(--accent)">nltk</code> punkt tokenizer<br>
+        <code style="font-family:monospace;color:var(--accent)">spacy</code> en_core_web_sm
+      </div>
+    </div>
+  </div>
+
+  <h3>Quick concepts to understand first</h3>
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">concepts.py — read this before everything else</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># ─────────────────────────────────────────────────────────
+# CONCEPT 1: chunk_size
+# How many characters (or tokens) per chunk.
+# Too small → loses context. Too large → noisy retrieval.
+# ─────────────────────────────────────────────────────────</span>
+chunk_size = <span class="num">500</span>   <span class="cm"># ~80–120 words. Good starting point.</span>
+chunk_size = <span class="num">1000</span>  <span class="cm"># ~200 words. Better for complex documents.</span>
+
+<span class="cm"># ─────────────────────────────────────────────────────────
+# CONCEPT 2: chunk_overlap
+# How many characters are SHARED between consecutive chunks.
+# Prevents losing context at chunk boundaries.
+# Rule of thumb: 10–20% of chunk_size
+# ─────────────────────────────────────────────────────────</span>
+chunk_overlap = <span class="num">100</span>  <span class="cm"># for chunk_size=500</span>
+chunk_overlap = <span class="num">200</span>  <span class="cm"># for chunk_size=1000</span>
+
+<span class="cm"># ─────────────────────────────────────────────────────────
+# CONCEPT 3: The output is ALWAYS list[Document]
+# Every chunker returns the same type — a list of Documents.
+# Each chunk becomes one Document with its own metadata.
+# ─────────────────────────────────────────────────────────</span>
+<span class="cm"># chunks[0].page_content  → the text of chunk 0</span>
+<span class="cm"># chunks[0].metadata      → source, page, start_index, etc.</span>
+
+<span class="cm"># ─────────────────────────────────────────────────────────
+# CONCEPT 4: split_documents() vs create_documents()
+# split_documents() → takes list[Document] (from Stage 1)
+# create_documents() → takes list[str] (raw strings)
+# Always use split_documents() in your pipeline.
+# ─────────────────────────────────────────────────────────</span></pre>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>Key Rule:</strong> chunk_overlap should never be ≥ chunk_size. Keep it at 15–20% of chunk_size. E.g., chunk_size=1000 → chunk_overlap=150 or 200.
+  </div>
+</div>
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<div class="section" id="section-overview">
+  <div class="sec-title">All Strategies — Overview</div>
+  <div class="sec-subtitle">10 chunking methods — when to use each and what documents they work best on.</div>
+
+  <div class="strategy-grid">
+    <div class="strategy-card"><div class="card-num">STRATEGY 01</div><div class="card-name">Fixed-Size Character</div><div class="card-desc">Splits at exact character count. Fast and simple but ignores word/sentence boundaries.</div><div class="card-tags"><span class="tag tag-amber">simple</span><span class="tag tag-gray">any text</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 02</div><div class="card-name">Recursive Character</div><div class="card-desc">Tries paragraph → sentence → word splits in order. Best general-purpose chunker.</div><div class="card-tags"><span class="tag tag-green">recommended</span><span class="tag tag-gray">PDF / plain text</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 03</div><div class="card-name">Token-Based</div><div class="card-desc">Counts tokens, not characters. Essential when LLM has strict token limits.</div><div class="card-tags"><span class="tag tag-blue">LLM-aware</span><span class="tag tag-gray">any text</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 04</div><div class="card-name">Semantic Chunking</div><div class="card-desc">Splits where embedding similarity drops between sentences. Best quality, needs embeddings.</div><div class="card-tags"><span class="tag tag-purple">advanced</span><span class="tag tag-gray">research / long docs</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 05</div><div class="card-name">Paragraph-Based</div><div class="card-desc">Keeps entire paragraphs intact. Ideal for narrative and reasoning-heavy documents.</div><div class="card-tags"><span class="tag tag-pink">structure-aware</span><span class="tag tag-gray">essays / reports</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 06</div><div class="card-name">Markdown Header</div><div class="card-desc">Splits on # / ## / ### headers, preserving hierarchy in metadata. Perfect for docs.</div><div class="card-tags"><span class="tag tag-amber">structure</span><span class="tag tag-gray">.md files / wikis</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 07</div><div class="card-name">Code / HTML Aware</div><div class="card-desc">Language-specific splitting — respects functions, classes, tags. Never splits mid-function.</div><div class="card-tags"><span class="tag tag-green">syntax-aware</span><span class="tag tag-gray">code / HTML</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 08</div><div class="card-name">Sentence-Window</div><div class="card-desc">Index at sentence level; retrieve with surrounding context window. Best retrieval precision.</div><div class="card-tags"><span class="tag tag-blue">retrieval-optimized</span><span class="tag tag-gray">Q&amp;A / factoid</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 09</div><div class="card-name">Hybrid Pipeline</div><div class="card-desc">Chain multiple chunkers based on document type detected from metadata.</div><div class="card-tags"><span class="tag tag-pink">production</span><span class="tag tag-gray">mixed documents</span></div></div>
+    <div class="strategy-card"><div class="card-num">STRATEGY 10</div><div class="card-name">Full Auto Pipeline</div><div class="card-desc">One function that detects data_type and applies the right chunking strategy automatically.</div><div class="card-tags"><span class="tag tag-purple">end-to-end</span><span class="tag tag-gray">all types</span></div></div>
+  </div>
+
+  <div class="divider"></div>
+  <h3>Comparison Matrix</h3>
+
+  <table class="comparison-table">
+    <tr>
+      <th>Strategy</th><th>LangChain Class</th><th>Doc Type</th><th>Speed</th><th>Quality</th><th>Needs Embedding?</th>
+    </tr>
+    <tr><td>Fixed-Size</td><td><code>CharacterTextSplitter</code></td><td>Any</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Recursive</td><td><code>RecursiveCharacterTextSplitter</code></td><td>PDF / Text</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Token-Based</td><td><code>RecursiveCharacterTextSplitter.from_tiktoken_encoder</code></td><td>Any</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Semantic</td><td><code>SemanticChunker</code></td><td>Research / Long</td><td><div class="rating"><span class="star">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div></td><td><span class="tag tag-purple">Yes</span></td></tr>
+    <tr><td>Paragraph</td><td><code>RecursiveCharacterTextSplitter</code> custom</td><td>Essays / Reports</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Markdown</td><td><code>MarkdownHeaderTextSplitter</code></td><td>.md / Wiki</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Code / HTML</td><td><code>RecursiveCharacterTextSplitter.from_language</code></td><td>Code / HTML</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+    <tr><td>Sentence-Window</td><td><code>NLTKTextSplitter</code> / <code>SpacyTextSplitter</code></td><td>Q&amp;A / Factoid</td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span></div></td><td><div class="rating"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div></td><td><span class="tag tag-gray">No</span></td></tr>
+  </table>
+
+  <div class="divider"></div>
+  <h3>Decision Tree — which chunker for which document?</h3>
+  <div class="dtree">
+    <div class="dtree-q">❓ What type of document are you chunking?</div>
+    <div class="dtree-row"><div class="dtree-cond">PDF / text file</div><div class="dtree-result">→ Use <strong>Recursive Character</strong> (Strategy 2). It's the best default.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Scanned PDF (OCR)</div><div class="dtree-result">→ Use <strong>Sentence-Window</strong> (Strategy 8) — OCR text is noisy; sentence splitting handles it better.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Markdown docs / wikis</div><div class="dtree-result">→ Use <strong>Markdown Header</strong> (Strategy 6). It preserves the section hierarchy.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Python / JS / HTML code</div><div class="dtree-result">→ Use <strong>Code-Aware</strong> (Strategy 7). Never splits mid-function or mid-tag.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">CSV / Excel rows</div><div class="dtree-result">→ No chunking needed — rows are already chunks from Stage 1.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Research papers / long docs</div><div class="dtree-result">→ Use <strong>Semantic Chunking</strong> (Strategy 4). Splits where topics change, not at character counts.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">LLM has a strict token limit</div><div class="dtree-result">→ Use <strong>Token-Based</strong> (Strategy 3). Counts actual tokens, not characters.</div></div>
+    <div class="dtree-row"><div class="dtree-cond">Mixed document types in pipeline</div><div class="dtree-result">→ Use <strong>Hybrid Auto Pipeline</strong> (Strategy 9 / 10). Detects type and routes to the right chunker.</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ FIXED-SIZE ═══════════════ -->
+<div class="section" id="section-fixed">
+  <div class="sec-title">① Fixed-Size Character Chunking <span class="tag tag-amber">BASIC</span></div>
+  <div class="sec-subtitle">Splits text at an exact character count. Fast but naive — does not respect sentence or word boundaries.</div>
+
+  <div class="callout callout-amber">
+    <strong>When to use:</strong> Quick experiments, when document structure doesn't matter, or as a baseline to compare other strategies against. Not recommended for production.
+  </div>
+
+  <div class="vis-label">Visual — how fixed-size chunking looks:</div>
+  <div class="chunk-vis">
+    <span class="chunk-a">Chunk 1 (chars 0–500)</span>
+    <span class="chunk-overlap">overlap</span>
+    <span class="chunk-b">Chunk 2 (chars 400–900)</span>
+    <span class="chunk-overlap">overlap</span>
+    <span class="chunk-c">Chunk 3 (chars 800–1300)</span>
+    <span class="chunk-overlap">overlap</span>
+    <span class="chunk-d">Chunk 4 (chars 1200–1700)</span>
+  </div>
+  <div style="font-size:12px;color:var(--muted);margin-top:6px;">⚠️ May cut a sentence in half — e.g., "The AI mode" | "l performed well"</div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Choose chunk_size</strong><p>500 chars ≈ 80 words. 1000 chars ≈ 180 words. Start with 500 and adjust.</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Choose chunk_overlap</strong><p>Set to ~15% of chunk_size. Prevents losing context at boundaries.</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Call split_documents()</strong><p>Pass your Stage 1 docs list. Each chunk = one Document with inherited metadata.</p></div></div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">01_fixed_size_chunking.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">CharacterTextSplitter</span>
+
+<span class="cm"># ── Basic Fixed-Size Chunking ──────────────────────────</span>
+splitter = <span class="cls">CharacterTextSplitter</span>(
+    separator=<span class="str">"\n\n"</span>,    <span class="cm"># try to split at paragraph breaks first</span>
+    chunk_size=<span class="num">500</span>,      <span class="cm"># max chars per chunk</span>
+    chunk_overlap=<span class="num">80</span>,    <span class="cm"># chars shared with next chunk</span>
+    length_function=<span class="fn">len</span>, <span class="cm"># measure by character count</span>
+    is_separator_regex=<span class="dec">False</span>
+)
+
+<span class="cm"># stage1_docs = list[Document] from your Stage 1 ingestion</span>
+chunks = splitter.split_documents(stage1_docs)
+
+<span class="fn">print</span>(<span class="str">f"Original docs : {len(stage1_docs)}"</span>)
+<span class="fn">print</span>(<span class="str">f"Total chunks  : {len(chunks)}"</span>)
+<span class="fn">print</span>(<span class="str">f"Avg chunk size: {sum(len(c.page_content) for c in chunks)//len(chunks)} chars"</span>)
+
+<span class="cm"># Inspect one chunk</span>
+<span class="fn">print</span>(<span class="str">f"\n--- Chunk 0 ---"</span>)
+<span class="fn">print</span>(<span class="str">f"Content: {chunks[0].page_content[:200]}"</span>)
+<span class="fn">print</span>(<span class="str">f"Metadata: {chunks[0].metadata}"</span>)
+
+<span class="cm"># ── Varying separators ────────────────────────────────</span>
+<span class="cm"># For CSV text, split on newline not double newline</span>
+csv_splitter = <span class="cls">CharacterTextSplitter</span>(
+    separator=<span class="str">"\n"</span>,
+    chunk_size=<span class="num">300</span>, chunk_overlap=<span class="num">0</span>
+)
+
+<span class="cm"># For dense text (no paragraphs), split on nothing (pure char count)</span>
+dense_splitter = <span class="cls">CharacterTextSplitter</span>(
+    separator=<span class="str">""</span>,
+    chunk_size=<span class="num">400</span>, chunk_overlap=<span class="num">60</span>
+)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ RECURSIVE ═══════════════ -->
+<div class="section" id="section-recursive">
+  <div class="sec-title">② Recursive Character Chunking <span class="tag tag-green">RECOMMENDED DEFAULT</span></div>
+  <div class="sec-subtitle">The best general-purpose chunker. Tries to split at paragraphs → sentences → words → characters in order. Respects natural text structure.</div>
+
+  <div class="callout callout-green">
+    <strong>Use this for:</strong> PDF text, plain text files, reports, articles — basically any natural language document. This should be your default choice unless you have a specific reason to use something else.
+  </div>
+
+  <div class="vis-label">How recursive splitting works — separator hierarchy:</div>
+  <div class="chunk-vis">
+    <span class="chunk-a">Try: \n\n (paragraphs)</span>
+    <span style="color:var(--muted);font-size:12px;">→ still too big?</span>
+    <span class="chunk-b">Try: \n (lines)</span>
+    <span style="color:var(--muted);font-size:12px;">→ still too big?</span>
+    <span class="chunk-c">Try: " " (words)</span>
+    <span style="color:var(--muted);font-size:12px;">→ still too big?</span>
+    <span class="chunk-d">Try: "" (chars)</span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">02_recursive_chunking.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>
+
+<span class="cm"># ── Standard setup (works for most documents) ─────────</span>
+splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">1000</span>,      <span class="cm"># target max chars per chunk</span>
+    chunk_overlap=<span class="num">150</span>,    <span class="cm"># 15% overlap — preserves context</span>
+    length_function=<span class="fn">len</span>,
+    separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>, <span class="str">""</span>],  <span class="cm"># default hierarchy</span>
+    add_start_index=<span class="dec">True</span>  <span class="cm"># adds 'start_index' to metadata (useful!)</span>
+)
+
+chunks = splitter.split_documents(stage1_docs)
+
+<span class="fn">print</span>(<span class="str">f"Chunks created: {len(chunks)}"</span>)
+
+<span class="cm"># ── Inspect chunk boundaries ───────────────────────────</span>
+<span class="kw">for</span> i, chunk <span class="kw">in</span> <span class="fn">enumerate</span>(chunks[:<span class="num">3</span>]):
+    <span class="fn">print</span>(<span class="str">f"\nChunk {i}: {len(chunk.page_content)} chars"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Starts: {chunk.page_content[:80]!r}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Ends  : {chunk.page_content[-80:]!r}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Meta  : {chunk.metadata}"</span>)
+
+<span class="cm"># ── Tuning for different document types ───────────────</span>
+
+<span class="cm"># For short factoid documents (FAQs, bullet-point docs)</span>
+faq_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">300</span>, chunk_overlap=<span class="num">50</span>,
+    separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">" "</span>]
+)
+
+<span class="cm"># For long research papers / technical manuals</span>
+research_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">2000</span>, chunk_overlap=<span class="num">300</span>,
+    separators=[<span class="str">"\n\n\n"</span>, <span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>]
+)
+
+<span class="cm"># ── Size analysis helper ──────────────────────────────</span>
+<span class="kw">def</span> <span class="fn">analyze_chunks</span>(chunks, label=<span class="str">"chunks"</span>):
+    sizes = [<span class="fn">len</span>(c.page_content) <span class="kw">for</span> c <span class="kw">in</span> chunks]
+    <span class="fn">print</span>(<span class="str">f"\n{label}: {len(chunks)} chunks"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Min size : {min(sizes)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Max size : {max(sizes)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Avg size : {sum(sizes)//len(sizes)}"</span>)
+
+<span class="fn">analyze_chunks</span>(chunks, <span class="str">"Recursive chunks"</span>)</pre>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>Study tip:</strong> Run <code>analyze_chunks()</code> after every strategy change. If max_size is much larger than chunk_size, your separators are too rare in the document. If min_size is tiny, your text has many empty sections — clean the data first.
+  </div>
+</div>
+
+<!-- ═══════════════ TOKEN ═══════════════ -->
+<div class="section" id="section-token">
+  <div class="sec-title">③ Token-Based Chunking <span class="tag tag-blue">LLM-AWARE</span></div>
+  <div class="sec-subtitle">Counts actual tokens (not characters) per chunk. Critical when your LLM has a token limit and you need precise control.</div>
+
+  <div class="callout callout-blue">
+    <strong>Why tokens matter:</strong> LLMs charge by token and have a context window limit in tokens — not characters. 1000 characters ≈ 200–300 tokens depending on language. Token-based chunking is the only way to guarantee you won't exceed the LLM's context window.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">03a_token_chunking_tiktoken.py — with tiktoken (OpenAI tokenizer)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>
+<span class="kw">import</span> <span class="imp">tiktoken</span>
+
+<span class="cm"># ── Method 1: from_tiktoken_encoder (easiest) ─────────</span>
+splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_tiktoken_encoder(
+    model_name=<span class="str">"gpt-3.5-turbo"</span>,  <span class="cm"># or "gpt-4", "text-embedding-ada-002"</span>
+    chunk_size=<span class="num">400</span>,               <span class="cm"># 400 TOKENS max per chunk</span>
+    chunk_overlap=<span class="num">60</span>               <span class="cm"># 60 TOKENS overlap</span>
+)
+
+chunks = splitter.split_documents(stage1_docs)
+
+<span class="cm"># Verify actual token counts</span>
+enc = tiktoken.encoding_for_model(<span class="str">"gpt-3.5-turbo"</span>)
+token_counts = [<span class="fn">len</span>(enc.encode(c.page_content)) <span class="kw">for</span> c <span class="kw">in</span> chunks]
+<span class="fn">print</span>(<span class="str">f"Max tokens in any chunk: {max(token_counts)}"</span>)
+<span class="fn">print</span>(<span class="str">f"Avg tokens per chunk   : {sum(token_counts)//len(token_counts)}"</span>)
+
+<span class="cm"># ── Method 2: Manual token count function ────────────</span>
+<span class="kw">def</span> <span class="fn">tiktoken_length</span>(text: <span class="fn">str</span>) -> <span class="fn">int</span>:
+    enc = tiktoken.get_encoding(<span class="str">"cl100k_base"</span>)
+    <span class="kw">return</span> <span class="fn">len</span>(enc.encode(text))
+
+splitter_manual = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">400</span>,
+    chunk_overlap=<span class="num">60</span>,
+    length_function=<span class="fn">tiktoken_length</span>,  <span class="cm"># ← use tokens, not chars</span>
+    separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>]
+)
+
+chunks_manual = splitter_manual.split_documents(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"Token-based chunks: {len(chunks_manual)}"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">03b_token_chunking_huggingface.py — with your local HF embedding model</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>
+<span class="kw">from</span> <span class="imp">transformers</span> <span class="kw">import</span> <span class="cls">AutoTokenizer</span>
+
+<span class="cm"># ── Use your local embedding model's tokenizer ────────</span>
+<span class="cm"># Replace with your actual local model path or HF model name</span>
+model_name = <span class="str">"sentence-transformers/all-MiniLM-L6-v2"</span>
+tokenizer = <span class="cls">AutoTokenizer</span>.from_pretrained(model_name)
+
+<span class="kw">def</span> <span class="fn">hf_token_length</span>(text: <span class="fn">str</span>) -> <span class="fn">int</span>:
+    <span class="kw">return</span> <span class="fn">len</span>(tokenizer.encode(text, add_special_tokens=<span class="dec">False</span>))
+
+splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">256</span>,       <span class="cm"># MiniLM-L6-v2 has 256 token max input!</span>
+    chunk_overlap=<span class="num">32</span>,
+    length_function=<span class="fn">hf_token_length</span>,
+    separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>]
+)
+
+chunks = splitter.split_documents(stage1_docs)
+
+<span class="cm"># Verify no chunk exceeds your model's token limit</span>
+oversized = [c <span class="kw">for</span> c <span class="kw">in</span> chunks <span class="kw">if</span> <span class="fn">hf_token_length</span>(c.page_content) > <span class="num">256</span>]
+<span class="fn">print</span>(<span class="str">f"Oversized chunks (>256 tokens): {len(oversized)}"</span>)
+<span class="cm"># Should print 0 if tuned correctly</span></pre>
+  </div>
+
+  <div class="callout callout-amber">
+    <strong>Critical:</strong> Always chunk using the tokenizer of YOUR embedding model. MiniLM-L6-v2 → max 256 tokens. BGE-large → max 512 tokens. OpenAI ada-002 → max 8191 tokens. Exceeding the limit silently truncates embeddings.
+  </div>
+</div>
+
+<!-- ═══════════════ SEMANTIC ═══════════════ -->
+<div class="section" id="section-semantic">
+  <div class="sec-title">④ Semantic Chunking <span class="tag tag-purple">ADVANCED · BEST QUALITY</span></div>
+  <div class="sec-subtitle">Splits where the meaning changes — uses your embedding model to detect topic shifts between sentences. The highest quality chunking strategy.</div>
+
+  <div class="callout callout-green">
+    <strong>Use this for:</strong> Research papers, long reports, technical manuals, Wikipedia articles — any document where topics shift gradually within the text. The extra compute cost is worth it for these document types.
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Split into sentences</strong><p>The chunker first breaks the full text into individual sentences using regex.</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Embed each sentence</strong><p>Your local embedding model encodes every sentence as a vector.</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Measure similarity between neighbours</strong><p>Calculates cosine distance between each consecutive sentence pair.</p></div></div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-body"><strong>Find breakpoints</strong><p>Where similarity drops sharply (topic change) → insert a chunk boundary.</p></div></div>
+    <div class="flow-step"><div class="step-num">5</div><div class="step-body"><strong>Merge into final chunks</strong><p>Sentences between boundaries are joined into one coherent chunk.</p></div></div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">04a_semantic_chunking_local.py — with your local embedding model</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_experimental.text_splitter</span> <span class="kw">import</span> <span class="cls">SemanticChunker</span>
+<span class="kw">from</span> <span class="imp">langchain_huggingface</span> <span class="kw">import</span> <span class="cls">HuggingFaceEmbeddings</span>
+
+<span class="cm"># ── Load your local embedding model ──────────────────</span>
+embeddings = <span class="cls">HuggingFaceEmbeddings</span>(
+    model_name=<span class="str">"sentence-transformers/all-MiniLM-L6-v2"</span>,
+    <span class="cm"># Replace with your local model path if needed:</span>
+    <span class="cm"># model_name="/path/to/your/local/model"</span>
+    model_kwargs={<span class="str">"device"</span>: <span class="str">"cpu"</span>}  <span class="cm"># or "cuda" if you have GPU</span>
+)
+
+<span class="cm"># ── Semantic Chunker: 3 threshold methods ─────────────</span>
+
+<span class="cm"># Method A: percentile (default) — splits at the X% largest similarity drops</span>
+chunker_percentile = <span class="cls">SemanticChunker</span>(
+    embeddings=embeddings,
+    breakpoint_threshold_type=<span class="str">"percentile"</span>,
+    breakpoint_threshold_amount=<span class="num">95</span>  <span class="cm"># split when drop > 95th percentile</span>
+)
+
+<span class="cm"># Method B: standard_deviation — split when drop > X std deviations</span>
+chunker_std = <span class="cls">SemanticChunker</span>(
+    embeddings=embeddings,
+    breakpoint_threshold_type=<span class="str">"standard_deviation"</span>,
+    breakpoint_threshold_amount=<span class="num">3</span>  <span class="cm"># split if drop > 3 sigma</span>
+)
+
+<span class="cm"># Method C: interquartile — split using IQR distance</span>
+chunker_iq = <span class="cls">SemanticChunker</span>(
+    embeddings=embeddings,
+    breakpoint_threshold_type=<span class="str">"interquartile"</span>
+)
+
+<span class="cm"># ── Apply and compare ─────────────────────────────────</span>
+<span class="kw">for</span> name, chunker <span class="kw">in</span> [
+    (<span class="str">"percentile"</span>,        chunker_percentile),
+    (<span class="str">"std_deviation"</span>,     chunker_std),
+    (<span class="str">"interquartile"</span>,     chunker_iq)
+]:
+    chunks = chunker.split_documents(stage1_docs)
+    <span class="fn">print</span>(<span class="str">f"{name:20s}: {len(chunks):4d} chunks  | avg {sum(len(c.page_content) for c in chunks)//len(chunks)} chars"</span>)
+
+<span class="cm"># ── Production use (pick one method) ─────────────────</span>
+semantic_chunks = chunker_percentile.split_documents(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"\nSemantic chunks: {len(semantic_chunks)}"</span>)
+<span class="fn">print</span>(<span class="str">f"Sample:\n{semantic_chunks[0].page_content}"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">04b_semantic_manual.py — manual semantic chunking without the experimental package</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># If langchain_experimental is not available, implement manually</span>
+<span class="kw">import</span> <span class="imp">numpy</span> <span class="kw">as</span> np
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">sentence_transformers</span> <span class="kw">import</span> <span class="cls">SentenceTransformer</span>
+<span class="kw">import</span> <span class="imp">re</span>
+
+model = <span class="cls">SentenceTransformer</span>(<span class="str">"all-MiniLM-L6-v2"</span>)
+
+<span class="kw">def</span> <span class="fn">semantic_chunk_manual</span>(text: <span class="fn">str</span>, threshold: <span class="fn">float</span>=<span class="num">0.4</span>) -> <span class="fn">list</span>[<span class="fn">str</span>]:
+    <span class="cm"># Step 1: split into sentences</span>
+    sentences = re.split(<span class="str">r'(?<=[.!?])\s+'</span>, text.strip())
+    sentences = [s <span class="kw">for</span> s <span class="kw">in</span> sentences <span class="kw">if</span> <span class="fn">len</span>(s) > <span class="num">20</span>]
+    <span class="kw">if</span> <span class="fn">len</span>(sentences) < <span class="num">2</span>: <span class="kw">return</span> [text]
+
+    <span class="cm"># Step 2: embed all sentences</span>
+    embeddings = model.encode(sentences)
+
+    <span class="cm"># Step 3: cosine distance between consecutive sentences</span>
+    <span class="kw">def</span> <span class="fn">cosine_dist</span>(a, b):
+        <span class="kw">return</span> <span class="num">1</span> - np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+    distances = [<span class="fn">cosine_dist</span>(embeddings[i], embeddings[i+<span class="num">1</span>])
+                 <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(embeddings)-<span class="num">1</span>)]
+
+    <span class="cm"># Step 4: find breakpoints where distance > threshold</span>
+    breakpoints = [i+<span class="num">1</span> <span class="kw">for</span> i, d <span class="kw">in</span> <span class="fn">enumerate</span>(distances) <span class="kw">if</span> d > threshold]
+
+    <span class="cm"># Step 5: group sentences into chunks</span>
+    chunks, start = [], <span class="num">0</span>
+    <span class="kw">for</span> bp <span class="kw">in</span> breakpoints + [<span class="fn">len</span>(sentences)]:
+        chunk = <span class="str">" "</span>.join(sentences[start:bp])
+        <span class="kw">if</span> chunk: chunks.append(chunk)
+        start = bp
+    <span class="kw">return</span> chunks
+
+<span class="cm"># Apply to all documents</span>
+semantic_docs = []
+<span class="kw">for</span> doc <span class="kw">in</span> stage1_docs:
+    text_chunks = <span class="fn">semantic_chunk_manual</span>(doc.page_content)
+    <span class="kw">for</span> i, chunk_text <span class="kw">in</span> <span class="fn">enumerate</span>(text_chunks):
+        semantic_docs.append(<span class="cls">Document</span>(
+            page_content=chunk_text,
+            metadata={<span class="op">**</span>doc.metadata, <span class="str">"chunk_index"</span>: i}
+        ))
+<span class="fn">print</span>(<span class="str">f"Manual semantic chunks: {len(semantic_docs)}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ PARAGRAPH ═══════════════ -->
+<div class="section" id="section-paragraph">
+  <div class="sec-title">⑤ Paragraph-Based Chunking <span class="tag tag-pink">STRUCTURE-AWARE</span></div>
+  <div class="sec-subtitle">Keeps entire paragraphs together. Ideal when each paragraph contains one complete idea — essays, reports, narrative documents.</div>
+
+  <div class="callout callout-pink">
+    <strong>Use this for:</strong> Business reports, legal documents, news articles, blog posts — any writing where paragraphs are meaningful units. Avoid for dense academic text where paragraphs are very long.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">05_paragraph_chunking.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># ── Method A: Double newline as paragraph separator ────</span>
+<span class="cm"># \n\n = paragraph boundary in most text files</span>
+para_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    separators=[<span class="str">"\n\n"</span>],   <span class="cm"># ONLY split on double newlines</span>
+    chunk_size=<span class="num">2000</span>,       <span class="cm"># large enough to hold most paragraphs</span>
+    chunk_overlap=<span class="num">0</span>        <span class="cm"># paragraphs are self-contained; no overlap</span>
+)
+
+chunks = para_splitter.split_documents(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"Paragraph chunks: {len(chunks)}"</span>)
+
+<span class="cm"># ── Method B: Manual paragraph extraction ─────────────</span>
+<span class="kw">def</span> <span class="fn">split_into_paragraphs</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>],
+                            min_para_length: <span class="fn">int</span>=<span class="num">100</span>,
+                            max_para_length: <span class="fn">int</span>=<span class="num">2000</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""
+    Split documents into paragraphs.
+    Skips paragraphs shorter than min_para_length (headers, blank lines).
+    If a paragraph is longer than max_para_length, splits it at sentences.
+    """</span>
+    result = []
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        paragraphs = doc.page_content.split(<span class="str">"\n\n"</span>)
+        <span class="kw">for</span> i, para <span class="kw">in</span> <span class="fn">enumerate</span>(paragraphs):
+            para = para.strip()
+            <span class="kw">if</span> <span class="fn">len</span>(para) < min_para_length:
+                <span class="kw">continue</span>          <span class="cm"># skip empty / header-only paragraphs</span>
+            <span class="kw">if</span> <span class="fn">len</span>(para) > max_para_length:
+                <span class="cm"># split oversized paragraphs at sentence boundaries</span>
+                sub_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+                    chunk_size=max_para_length, chunk_overlap=<span class="num">100</span>,
+                    separators=[<span class="str">". "</span>, <span class="str">"! "</span>, <span class="str">"? "</span>, <span class="str">" "</span>]
+                )
+                sub_chunks = sub_splitter.create_documents(
+                    [para], metadatas=[doc.metadata]
+                )
+                result.extend(sub_chunks)
+            <span class="kw">else</span>:
+                result.append(<span class="cls">Document</span>(
+                    page_content=para,
+                    metadata={<span class="op">**</span>doc.metadata, <span class="str">"para_index"</span>: i}
+                ))
+    <span class="kw">return</span> result
+
+para_docs = <span class="fn">split_into_paragraphs</span>(
+    stage1_docs,
+    min_para_length=<span class="num">80</span>,
+    max_para_length=<span class="num">1500</span>
+)
+<span class="fn">print</span>(<span class="str">f"Paragraph docs (manual): {len(para_docs)}"</span>)
+<span class="fn">print</span>(<span class="str">f"Sample: {para_docs[0].page_content[:300]}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ MARKDOWN ═══════════════ -->
+<div class="section" id="section-markdown">
+  <div class="sec-title">⑥ Markdown Header Chunking <span class="tag tag-amber">STRUCTURE-PRESERVING</span></div>
+  <div class="sec-subtitle">Splits markdown documents at heading boundaries (# / ## / ###) and stores the full header hierarchy in metadata. Perfect for documentation sites, wikis, and structured guides.</div>
+
+  <div class="callout callout-green">
+    <strong>Use this for:</strong> Documentation (.md), wikis, README files, technical guides — anything where headings are meaningful navigation points. The header hierarchy is stored in metadata, enabling header-filtered retrieval.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">06_markdown_chunking.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> (
+    <span class="cls">MarkdownHeaderTextSplitter</span>,
+    <span class="cls">RecursiveCharacterTextSplitter</span>
+)
+
+<span class="cm"># ── Step 1: Split by headers ──────────────────────────</span>
+headers_to_split_on = [
+    (<span class="str">"#"</span>,   <span class="str">"Header1"</span>),   <span class="cm"># H1 → stored in metadata as Header1</span>
+    (<span class="str">"##"</span>,  <span class="str">"Header2"</span>),
+    (<span class="str">"###"</span>, <span class="str">"Header3"</span>),
+]
+
+md_splitter = <span class="cls">MarkdownHeaderTextSplitter</span>(
+    headers_to_split_on=headers_to_split_on,
+    strip_headers=<span class="dec">False</span>  <span class="cm"># keep the header text inside the chunk content</span>
+)
+
+<span class="cm"># Apply to markdown docs (filter from stage1 by type)</span>
+md_docs = [d <span class="kw">for</span> d <span class="kw">in</span> stage1_docs <span class="kw">if</span> d.metadata.get(<span class="str">"data_type"</span>) == <span class="str">"markdown"</span>]
+
+header_chunks = []
+<span class="kw">for</span> doc <span class="kw">in</span> md_docs:
+    splits = md_splitter.split_text(doc.page_content)
+    <span class="kw">for</span> s <span class="kw">in</span> splits:
+        s.metadata.update(doc.metadata)   <span class="cm"># merge source metadata</span>
+    header_chunks.extend(splits)
+
+<span class="fn">print</span>(<span class="str">f"Header-split chunks: {len(header_chunks)}"</span>)
+
+<span class="cm"># Each chunk now has rich metadata like:
+# {'Header1': 'Introduction', 'Header2': 'Setup', 'source': 'guide.md'}
+# This enables filtered retrieval: "find chunks under Header2=Setup"</span>
+
+<span class="cm"># ── Step 2: Sub-split large sections ─────────────────</span>
+<span class="cm"># Some sections may still be very long — sub-split them</span>
+sub_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">800</span>, chunk_overlap=<span class="num">100</span>
+)
+
+final_md_chunks = sub_splitter.split_documents(header_chunks)
+<span class="fn">print</span>(<span class="str">f"Final markdown chunks (after sub-split): {len(final_md_chunks)}"</span>)
+
+<span class="cm"># Inspect metadata preserved through the chain</span>
+<span class="kw">for</span> chunk <span class="kw">in</span> final_md_chunks[:<span class="num">3</span>]:
+    <span class="fn">print</span>(<span class="str">f"  Metadata: {chunk.metadata}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Content : {chunk.page_content[:100]}"</span>)
+    <span class="fn">print</span>()</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ CODE ═══════════════ -->
+<div class="section" id="section-code">
+  <div class="sec-title">⑦ Code &amp; HTML-Aware Chunking <span class="tag tag-green">SYNTAX-AWARE</span></div>
+  <div class="sec-subtitle">Language-specific splitters that understand code syntax — never splits in the middle of a function, class, or HTML tag. Supports Python, JS, HTML, CSS, and more.</div>
+
+  <div class="callout callout-green">
+    <strong>Use this for:</strong> Code documentation, GitHub READMEs with code blocks, HTML pages, API documentation with code samples. Preserves code structure so the LLM can reason about complete functions.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">07a_code_chunking.py — Python / JS / Rust / Go / Java</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">RecursiveCharacterTextSplitter</span>, <span class="cls">Language</span>
+
+<span class="cm"># ── Supported languages ───────────────────────────────</span>
+<span class="cm"># Language.PYTHON, Language.JS, Language.TS, Language.HTML,</span>
+<span class="cm"># Language.CSS, Language.JAVA, Language.CPP, Language.GO,</span>
+<span class="cm"># Language.RUST, Language.MARKDOWN, Language.LATEX</span>
+
+<span class="cm"># ── Python code chunking ──────────────────────────────</span>
+python_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_language(
+    language=<span class="cls">Language</span>.PYTHON,
+    chunk_size=<span class="num">1500</span>,
+    chunk_overlap=<span class="num">100</span>
+)
+
+python_docs = [d <span class="kw">for</span> d <span class="kw">in</span> stage1_docs <span class="kw">if</span> <span class="str">".py"</span> <span class="kw">in</span> d.metadata.get(<span class="str">"source"</span>, <span class="str">""</span>)]
+python_chunks = python_splitter.split_documents(python_docs)
+<span class="fn">print</span>(<span class="str">f"Python chunks: {len(python_chunks)}"</span>)
+
+<span class="cm"># See what separators it uses for Python</span>
+py_seps = <span class="cls">RecursiveCharacterTextSplitter</span>.get_separators_for_language(<span class="cls">Language</span>.PYTHON)
+<span class="fn">print</span>(<span class="str">f"Python separators: {py_seps}"</span>)
+<span class="cm"># Output: ['\nclass ', '\ndef ', '\n\tdef ', '\n\n', '\n', ' ', '']</span>
+
+<span class="cm"># ── JavaScript ────────────────────────────────────────</span>
+js_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_language(
+    language=<span class="cls">Language</span>.JS,
+    chunk_size=<span class="num">1200</span>, chunk_overlap=<span class="num">80</span>
+)
+
+<span class="cm"># ── Apply multiple language chunkers based on file extension ──</span>
+language_map = {
+    <span class="str">".py"</span>:   <span class="cls">Language</span>.PYTHON,
+    <span class="str">".js"</span>:   <span class="cls">Language</span>.JS,
+    <span class="str">".ts"</span>:   <span class="cls">Language</span>.TS,
+    <span class="str">".java"</span>: <span class="cls">Language</span>.JAVA,
+    <span class="str">".go"</span>:   <span class="cls">Language</span>.GO,
+    <span class="str">".rs"</span>:   <span class="cls">Language</span>.RUST,
+}
+
+code_chunks = []
+<span class="kw">for</span> ext, lang <span class="kw">in</span> language_map.items():
+    docs = [d <span class="kw">for</span> d <span class="kw">in</span> stage1_docs
+            <span class="kw">if</span> d.metadata.get(<span class="str">"source"</span>, <span class="str">""</span>).endswith(ext)]
+    <span class="kw">if</span> docs:
+        splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_language(
+            language=lang, chunk_size=<span class="num">1500</span>, chunk_overlap=<span class="num">100</span>
+        )
+        code_chunks.extend(splitter.split_documents(docs))
+        <span class="fn">print</span>(<span class="str">f"  {ext}: {len(docs)} files → {len(code_chunks)} chunks"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">07b_html_chunking.py — HTML / web content</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">HTMLSectionSplitter</span>, <span class="cls">HTMLHeaderTextSplitter</span>
+
+<span class="cm"># ── Method A: Split HTML by header tags (h1, h2, h3) ─</span>
+headers_to_split_on = [
+    (<span class="str">"h1"</span>, <span class="str">"Header 1"</span>),
+    (<span class="str">"h2"</span>, <span class="str">"Header 2"</span>),
+    (<span class="str">"h3"</span>, <span class="str">"Header 3"</span>),
+]
+
+html_splitter = <span class="cls">HTMLHeaderTextSplitter</span>(headers_to_split_on)
+
+html_docs = [d <span class="kw">for</span> d <span class="kw">in</span> stage1_docs <span class="kw">if</span> d.metadata.get(<span class="str">"data_type"</span>) == <span class="str">"html"</span>]
+html_chunks = []
+<span class="kw">for</span> doc <span class="kw">in</span> html_docs:
+    splits = html_splitter.split_text(doc.page_content)
+    <span class="kw">for</span> s <span class="kw">in</span> splits:
+        s.metadata.update(doc.metadata)
+    html_chunks.extend(splits)
+
+<span class="fn">print</span>(<span class="str">f"HTML header chunks: {len(html_chunks)}"</span>)
+
+<span class="cm"># ── Method B: Language-aware (treats HTML as code) ────</span>
+<span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">Language</span>
+html_code_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_language(
+    language=<span class="cls">Language</span>.HTML, chunk_size=<span class="num">1000</span>, chunk_overlap=<span class="num">50</span>
+)
+html_code_chunks = html_code_splitter.split_documents(html_docs)
+<span class="fn">print</span>(<span class="str">f"HTML code-aware chunks: {len(html_code_chunks)}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ SENTENCE ═══════════════ -->
+<div class="section" id="section-sentence">
+  <div class="sec-title">⑧ Sentence-Window Chunking <span class="tag tag-blue">RETRIEVAL-OPTIMIZED</span></div>
+  <div class="sec-subtitle">Split at individual sentences, but retrieve with a surrounding context window. Gives pinpoint precision at index time, richer context at retrieval time.</div>
+
+  <div class="callout callout-blue">
+    <strong>Use this for:</strong> Q&amp;A systems, factoid retrieval, customer support bots — anywhere you need to find very specific facts. The sentence is indexed precisely, but the LLM gets surrounding context during generation.
+  </div>
+
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-body"><strong>Split into sentences</strong><p>Use NLTK or spaCy to get linguistically correct sentence boundaries.</p></div></div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-body"><strong>Embed each sentence</strong><p>Index every sentence individually — this is what gets compared during retrieval.</p></div></div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-body"><strong>Store window in metadata</strong><p>Each sentence Document stores its surrounding ±N sentences in metadata.</p></div></div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-body"><strong>Retrieve sentence, return window</strong><p>The sentence matches the query, but the LLM sees the full window as context.</p></div></div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">08a_sentence_nltk.py — NLTK sentence splitting</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># First time only: import nltk; nltk.download('punkt')</span>
+<span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">NLTKTextSplitter</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># ── Basic NLTK sentence splitting ─────────────────────</span>
+nltk_splitter = <span class="cls">NLTKTextSplitter</span>(
+    chunk_size=<span class="num">500</span>,  <span class="cm"># still groups sentences up to this size</span>
+    separator=<span class="str">"\n"</span>
+)
+nltk_chunks = nltk_splitter.split_documents(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"NLTK chunks: {len(nltk_chunks)}"</span>)
+
+<span class="cm"># ── Sentence-Window pattern ───────────────────────────</span>
+<span class="kw">import</span> <span class="imp">nltk</span>
+<span class="kw">from</span> <span class="imp">nltk.tokenize</span> <span class="kw">import</span> sent_tokenize
+
+<span class="kw">def</span> <span class="fn">sentence_window_chunks</span>(
+    docs: <span class="fn">list</span>[<span class="cls">Document</span>],
+    window_size: <span class="fn">int</span> = <span class="num">2</span>  <span class="cm"># sentences on each side</span>
+) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""
+    Each chunk = 1 sentence (for indexing).
+    metadata['window'] = sentence + window_size sentences on each side (for LLM context).
+    """</span>
+    result = []
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        sentences = sent_tokenize(doc.page_content)
+        <span class="kw">for</span> i, sent <span class="kw">in</span> <span class="fn">enumerate</span>(sentences):
+            <span class="kw">if</span> <span class="fn">len</span>(sent.strip()) < <span class="num">20</span>:
+                <span class="kw">continue</span>
+            <span class="cm"># build context window</span>
+            start = <span class="fn">max</span>(<span class="num">0</span>, i - window_size)
+            end   = <span class="fn">min</span>(<span class="fn">len</span>(sentences), i + window_size + <span class="num">1</span>)
+            window = <span class="str">" "</span>.join(sentences[start:end])
+
+            result.append(<span class="cls">Document</span>(
+                page_content=sent,          <span class="cm"># ← indexed (precise)</span>
+                metadata={
+                    <span class="op">**</span>doc.metadata,
+                    <span class="str">"sentence_index"</span>: i,
+                    <span class="str">"window_context"</span>: window  <span class="cm"># ← sent to LLM (rich)</span>
+                }
+            ))
+    <span class="kw">return</span> result
+
+window_docs = <span class="fn">sentence_window_chunks</span>(stage1_docs, window_size=<span class="num">2</span>)
+<span class="fn">print</span>(<span class="str">f"Sentence-window chunks: {len(window_docs)}"</span>)
+<span class="fn">print</span>(<span class="str">f"\nSentence (indexed): {window_docs[5].page_content}"</span>)
+<span class="fn">print</span>(<span class="str">f"Window  (for LLM) : {window_docs[5].metadata['window_context']}"</span>)</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">08b_sentence_spacy.py — spaCy (more accurate)</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="cm"># pip install spacy && python -m spacy download en_core_web_sm</span>
+<span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> <span class="cls">SpacyTextSplitter</span>
+
+spacy_splitter = <span class="cls">SpacyTextSplitter</span>(
+    chunk_size=<span class="num">500</span>,
+    pipeline=<span class="str">"en_core_web_sm"</span>   <span class="cm"># or "sentencizer" for faster splitting</span>
+)
+
+spacy_chunks = spacy_splitter.split_documents(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"spaCy chunks: {len(spacy_chunks)}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ HYBRID ═══════════════ -->
+<div class="section" id="section-hybrid">
+  <div class="sec-title">⑨ Hybrid Chunking Pipeline <span class="tag tag-pink">PRODUCTION PATTERN</span></div>
+  <div class="sec-subtitle">Chain multiple chunking strategies — first split by structure (headers/paragraphs), then by size. The gold standard for production RAG systems.</div>
+
+  <div class="callout callout-pink">
+    <strong>When to use:</strong> Any real-world pipeline where you have mixed document types — some PDFs, some markdown docs, some HTML pages, some CSVs. This pattern routes each document to the right chunker based on its <code>data_type</code> metadata from Stage 1.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">09_hybrid_chunking.py</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> (
+    <span class="cls">RecursiveCharacterTextSplitter</span>,
+    <span class="cls">MarkdownHeaderTextSplitter</span>,
+    <span class="cls">NLTKTextSplitter</span>,
+    <span class="cls">Language</span>
+)
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+
+<span class="cm"># ── Pattern: Structure-first, then size ───────────────</span>
+<span class="kw">def</span> <span class="fn">hybrid_chunk_markdown</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Split markdown by headers, then sub-split large sections."""</span>
+    md_header_splitter = <span class="cls">MarkdownHeaderTextSplitter</span>(
+        headers_to_split_on=[(<span class="str">"#"</span>,<span class="str">"H1"</span>),(<span class="str">"##"</span>,<span class="str">"H2"</span>),(<span class="str">"###"</span>,<span class="str">"H3"</span>)]
+    )
+    sub_splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+        chunk_size=<span class="num">800</span>, chunk_overlap=<span class="num">100</span>
+    )
+    all_chunks = []
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        header_splits = md_header_splitter.split_text(doc.page_content)
+        <span class="kw">for</span> s <span class="kw">in</span> header_splits: s.metadata.update(doc.metadata)
+        sub_chunks = sub_splitter.split_documents(header_splits)
+        all_chunks.extend(sub_chunks)
+    <span class="kw">return</span> all_chunks
+
+<span class="kw">def</span> <span class="fn">hybrid_chunk_pdf</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Recursive char split — best for PDF text."""</span>
+    splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+        chunk_size=<span class="num">1000</span>, chunk_overlap=<span class="num">150</span>,
+        separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>]
+    )
+    <span class="kw">return</span> splitter.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">hybrid_chunk_image</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Sentence splitting for OCR text — noisy, sentence-level is safer."""</span>
+    splitter = <span class="cls">NLTKTextSplitter</span>(chunk_size=<span class="num">400</span>)
+    <span class="kw">return</span> splitter.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">hybrid_chunk_code</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>], lang=<span class="cls">Language</span>.<span class="cls">PYTHON</span>) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Language-aware split — never cuts mid-function."""</span>
+    splitter = <span class="cls">RecursiveCharacterTextSplitter</span>.from_language(
+        language=lang, chunk_size=<span class="num">1500</span>, chunk_overlap=<span class="num">100</span>
+    )
+    <span class="kw">return</span> splitter.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">hybrid_chunk_csv</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""CSV rows from Stage 1 are already single-row chunks — pass through."""</span>
+    <span class="kw">return</span> docs  <span class="cm"># no further chunking needed</span>
+
+<span class="cm"># ── Dispatcher: route each doc to the right chunker ──</span>
+<span class="kw">def</span> <span class="fn">hybrid_chunk_dispatcher</span>(docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""Route documents to the correct chunker based on data_type metadata."""</span>
+    buckets = {<span class="str">"pdf"</span>:[], <span class="str">"markdown"</span>:[], <span class="str">"image"</span>:[], <span class="str">"csv"</span>:[], <span class="str">"excel"</span>:[], <span class="str">"txt"</span>:[], <span class="str">"html"</span>:[], <span class="str">"other"</span>:[]}
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        dt = doc.metadata.get(<span class="str">"data_type"</span>, <span class="str">"other"</span>)
+        buckets.get(dt, buckets[<span class="str">"other"</span>]).append(doc)
+
+    all_chunks = []
+    all_chunks.extend(<span class="fn">hybrid_chunk_pdf</span>(buckets[<span class="str">"pdf"</span>] + buckets[<span class="str">"txt"</span>]))
+    all_chunks.extend(<span class="fn">hybrid_chunk_markdown</span>(buckets[<span class="str">"markdown"</span>]))
+    all_chunks.extend(<span class="fn">hybrid_chunk_image</span>(buckets[<span class="str">"image"</span>]))
+    all_chunks.extend(<span class="fn">hybrid_chunk_csv</span>(buckets[<span class="str">"csv"</span>] + buckets[<span class="str">"excel"</span>]))
+    all_chunks.extend(<span class="fn">hybrid_chunk_pdf</span>(buckets[<span class="str">"html"</span>]))  <span class="cm"># HTML text uses same splitter</span>
+    all_chunks.extend(<span class="fn">hybrid_chunk_pdf</span>(buckets[<span class="str">"other"</span>]))
+
+    <span class="kw">return</span> all_chunks
+
+<span class="cm"># Run it</span>
+final_chunks = <span class="fn">hybrid_chunk_dispatcher</span>(stage1_docs)
+<span class="fn">print</span>(<span class="str">f"\nHybrid pipeline total chunks: {len(final_chunks)}"</span>)
+
+<span class="kw">from</span> <span class="imp">collections</span> <span class="kw">import</span> <span class="cls">Counter</span>
+counts = <span class="cls">Counter</span>(c.metadata.get(<span class="str">"data_type"</span>) <span class="kw">for</span> c <span class="kw">in</span> final_chunks)
+<span class="fn">print</span>(<span class="str">"Chunks by type:"</span>)
+<span class="kw">for</span> dtype, n <span class="kw">in</span> counts.items():
+    <span class="fn">print</span>(<span class="str">f"  {dtype:12s}: {n}"</span>)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ FULL PIPELINE ═══════════════ -->
+<div class="section" id="section-pipeline">
+  <div class="sec-title">⑩ Complete Stage 2 Pipeline <span class="tag tag-purple">END-TO-END</span></div>
+  <div class="sec-subtitle">One script that takes Stage 1 output (list[Document]) → applies the right chunking strategy per document type → outputs clean chunks ready for Stage 3 (embedding).</div>
+
+  <div class="callout callout-green">
+    <strong>This is your practice file.</strong> Drop in your <code>stage1_docs</code> from the ingestion pipeline, run this, and inspect the output chunks. When you see the summary with counts per type, Stage 2 is complete.
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="file-label">stage2_chunking_pipeline.py — COMPLETE, production-ready</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+<pre><span class="str">"""
+RAG Pipeline — Stage 2: Chunking
+Input : list[Document] from Stage 1 ingestion
+Output: list[Document] (chunks) ready for Stage 3 embedding
+
+Strategies applied per data_type:
+  pdf / txt / html → RecursiveCharacterTextSplitter
+  markdown         → MarkdownHeaderTextSplitter + RecursiveCharacterTextSplitter
+  image (OCR)      → NLTKTextSplitter (sentence-level)
+  csv / excel      → pass-through (rows already chunked)
+  scanned_pdf      → NLTKTextSplitter
+"""</span>
+
+<span class="kw">import</span> <span class="imp">nltk</span>
+<span class="kw">from</span> <span class="imp">collections</span> <span class="kw">import</span> <span class="cls">Counter</span>
+<span class="kw">from</span> <span class="imp">langchain.schema</span> <span class="kw">import</span> <span class="cls">Document</span>
+<span class="kw">from</span> <span class="imp">langchain_text_splitters</span> <span class="kw">import</span> (
+    <span class="cls">RecursiveCharacterTextSplitter</span>,
+    <span class="cls">MarkdownHeaderTextSplitter</span>,
+    <span class="cls">NLTKTextSplitter</span>,
+)
+
+<span class="cm"># Download NLTK punkt (first run only)</span>
+<span class="kw">try</span>:
+    nltk.data.<span class="fn">find</span>(<span class="str">"tokenizers/punkt"</span>)
+<span class="kw">except</span> <span class="cls">LookupError</span>:
+    nltk.<span class="fn">download</span>(<span class="str">"punkt"</span>)
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# CHUNKER DEFINITIONS
+# ─────────────────────────────────────────────────────</span>
+
+PDF_SPLITTER = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">1000</span>, chunk_overlap=<span class="num">150</span>,
+    separators=[<span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">". "</span>, <span class="str">" "</span>, <span class="str">""</span>],
+    add_start_index=<span class="dec">True</span>
+)
+
+MD_HEADER_SPLITTER = <span class="cls">MarkdownHeaderTextSplitter</span>(
+    headers_to_split_on=[(<span class="str">"#"</span>,<span class="str">"H1"</span>),(<span class="str">"##"</span>,<span class="str">"H2"</span>),(<span class="str">"###"</span>,<span class="str">"H3"</span>)],
+    strip_headers=<span class="dec">False</span>
+)
+MD_SUB_SPLITTER = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">800</span>, chunk_overlap=<span class="num">100</span>
+)
+
+IMG_SPLITTER = <span class="cls">NLTKTextSplitter</span>(chunk_size=<span class="num">400</span>)
+
+HTML_SPLITTER = <span class="cls">RecursiveCharacterTextSplitter</span>(
+    chunk_size=<span class="num">800</span>, chunk_overlap=<span class="num">100</span>,
+    separators=[<span class="str">"</p>"</span>, <span class="str">"\n\n"</span>, <span class="str">"\n"</span>, <span class="str">" "</span>]
+)
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# PER-TYPE CHUNK FUNCTIONS
+# ─────────────────────────────────────────────────────</span>
+
+<span class="kw">def</span> <span class="fn">chunk_pdfs</span>(docs): <span class="kw">return</span> PDF_SPLITTER.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">chunk_markdown</span>(docs):
+    result = []
+    <span class="kw">for</span> doc <span class="kw">in</span> docs:
+        header_splits = MD_HEADER_SPLITTER.split_text(doc.page_content)
+        <span class="kw">for</span> s <span class="kw">in</span> header_splits: s.metadata.update(doc.metadata)
+        result.extend(MD_SUB_SPLITTER.split_documents(header_splits))
+    <span class="kw">return</span> result
+
+<span class="kw">def</span> <span class="fn">chunk_images</span>(docs): <span class="kw">return</span> IMG_SPLITTER.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">chunk_html</span>(docs):   <span class="kw">return</span> HTML_SPLITTER.split_documents(docs)
+
+<span class="kw">def</span> <span class="fn">chunk_passthrough</span>(docs): <span class="kw">return</span> docs  <span class="cm"># CSV/Excel: rows are chunks</span>
+
+
+<span class="cm"># ─────────────────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────────────────</span>
+
+<span class="kw">def</span> <span class="fn">run_chunking</span>(stage1_docs: <span class="fn">list</span>[<span class="cls">Document</span>]) -> <span class="fn">list</span>[<span class="cls">Document</span>]:
+    <span class="str">"""
+    Main Stage 2 entry point.
+    Takes Stage 1 documents, applies the right chunker per type,
+    returns unified list of chunks for Stage 3 (embedding).
+    """</span>
+    <span class="fn">print</span>(<span class="str">f"\n{'='*52}"</span>)
+    <span class="fn">print</span>(<span class="str">f" RAG Stage 2 — Chunking ({len(stage1_docs)} input documents)"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*52}"</span>)
+
+    <span class="cm"># Route documents by data_type</span>
+    buckets = {<span class="str">"pdf"</span>:[], <span class="str">"txt"</span>:[], <span class="str">"markdown"</span>:[], <span class="str">"image"</span>:[],
+               <span class="str">"scanned_pdf"</span>:[], <span class="str">"html"</span>:[], <span class="str">"csv"</span>:[], <span class="str">"excel"</span>:[], <span class="str">"json"</span>:[], <span class="str">"other"</span>:[]}
+
+    <span class="kw">for</span> doc <span class="kw">in</span> stage1_docs:
+        dtype = doc.metadata.get(<span class="str">"data_type"</span>, <span class="str">"other"</span>)
+        buckets.get(dtype, buckets[<span class="str">"other"</span>]).append(doc)
+
+    all_chunks = []
+
+    <span class="cm"># Apply chunkers per type</span>
+    routing = [
+        (<span class="str">"pdf"</span>,         <span class="fn">chunk_pdfs</span>,         buckets[<span class="str">"pdf"</span>]       ),
+        (<span class="str">"txt"</span>,         <span class="fn">chunk_pdfs</span>,         buckets[<span class="str">"txt"</span>]       ),
+        (<span class="str">"markdown"</span>,    <span class="fn">chunk_markdown</span>,    buckets[<span class="str">"markdown"</span>]  ),
+        (<span class="str">"image"</span>,       <span class="fn">chunk_images</span>,      buckets[<span class="str">"image"</span>]     ),
+        (<span class="str">"scanned_pdf"</span>, <span class="fn">chunk_images</span>,      buckets[<span class="str">"scanned_pdf"</span>]),
+        (<span class="str">"html"</span>,        <span class="fn">chunk_html</span>,        buckets[<span class="str">"html"</span>]      ),
+        (<span class="str">"csv"</span>,         <span class="fn">chunk_passthrough</span>, buckets[<span class="str">"csv"</span>]       ),
+        (<span class="str">"excel"</span>,       <span class="fn">chunk_passthrough</span>, buckets[<span class="str">"excel"</span>]     ),
+        (<span class="str">"json"</span>,        <span class="fn">chunk_passthrough</span>, buckets[<span class="str">"json"</span>]      ),
+        (<span class="str">"other"</span>,       <span class="fn">chunk_pdfs</span>,        buckets[<span class="str">"other"</span>]     ),
+    ]
+
+    <span class="kw">for</span> dtype, chunker_fn, docs <span class="kw">in</span> routing:
+        <span class="kw">if</span> <span class="kw">not</span> docs: <span class="kw">continue</span>
+        <span class="kw">try</span>:
+            chunks = chunker_fn(docs)
+            all_chunks.extend(chunks)
+            <span class="fn">print</span>(<span class="str">f"  [{dtype:12s}] {len(docs):3d} docs  → {len(chunks):4d} chunks"</span>)
+        <span class="kw">except</span> <span class="cls">Exception</span> <span class="kw">as</span> e:
+            <span class="fn">print</span>(<span class="str">f"  [{dtype:12s}] ERROR: {e}"</span>)
+
+    <span class="cm"># Post-processing: remove empty chunks</span>
+    all_chunks = [c <span class="kw">for</span> c <span class="kw">in</span> all_chunks <span class="kw">if</span> c.page_content.<span class="fn">strip</span>()]
+
+    <span class="fn">print</span>(<span class="str">f"{'='*52}"</span>)
+    <span class="fn">print</span>(<span class="str">f"✅ Total chunks ready for embedding: {len(all_chunks)}"</span>)
+    sizes = [<span class="fn">len</span>(c.page_content) <span class="kw">for</span> c <span class="kw">in</span> all_chunks]
+    <span class="fn">print</span>(<span class="str">f"   Min chars: {min(sizes)} | Max: {max(sizes)} | Avg: {sum(sizes)//len(sizes)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"{'='*52}\n"</span>)
+
+    <span class="kw">return</span> all_chunks   <span class="cm"># ← passes to Stage 3 (embedding)</span>
+
+
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    <span class="cm"># ── Import Stage 1 pipeline ──────────────────────</span>
+    <span class="kw">from</span> <span class="imp">stage1_ingestion_pipeline</span> <span class="kw">import</span> run_ingestion
+
+    <span class="cm"># Run Stage 1</span>
+    stage1_docs = <span class="fn">run_ingestion</span>(<span class="str">"./data"</span>)
+
+    <span class="cm"># Run Stage 2</span>
+    stage2_chunks = <span class="fn">run_chunking</span>(stage1_docs)
+
+    <span class="cm"># Sanity check</span>
+    <span class="fn">print</span>(<span class="str">"Sample chunk:"</span>)
+    sample = stage2_chunks[<span class="num">0</span>]
+    <span class="fn">print</span>(<span class="str">f"  Source     : {sample.metadata.get('source')}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Data type  : {sample.metadata.get('data_type')}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Chunk chars: {len(sample.page_content)}"</span>)
+    <span class="fn">print</span>(<span class="str">f"  Content    : {sample.page_content[:250]}"</span>)</pre>
+  </div>
+
+  <div class="summary">
+    <h4>Stage 2 output → Stage 3 input</h4>
+    <div class="summary-row"><span class="lbl">Return type</span><span class="val">list[Document]</span></div>
+    <div class="summary-row"><span class="lbl">page_content</span><span class="val">text chunk (string)</span></div>
+    <div class="summary-row"><span class="lbl">metadata['source']</span><span class="val">original file path</span></div>
+    <div class="summary-row"><span class="lbl">metadata['data_type']</span><span class="val">pdf / markdown / image…</span></div>
+    <div class="summary-row"><span class="lbl">metadata['start_index']</span><span class="val">char position in source doc</span></div>
+    <div class="summary-row"><span class="lbl">Next stage</span><span class="val">EmbeddingsModel.embed_documents()</span></div>
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:24px">
+    <strong>Practice order:</strong> Day 1 — run recursive chunking on your PDFs and inspect output. Day 2 — run semantic chunking on one long document and compare chunk quality. Day 3 — run the full pipeline with mixed data and check the summary table. When the summary shows correct counts per type, you've mastered Stage 2.
+  </div>
+</div>
+
+</div><!-- end .content -->
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.nav-tab');
+  const map = {setup:0,overview:1,fixed:2,recursive:3,token:4,semantic:5,paragraph:6,markdown:7,code:8,sentence:9,hybrid:10,pipeline:11};
+  if(tabs[map[name]]) tabs[map[name]].classList.add('active');
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>
